@@ -1,0 +1,7 @@
+{
+  "name": "SkillBridge",
+  "description": "AI-Powered Career Intelligence & Academia–Industry Collaboration Platform connecting Students, Industry, Institutions, and Academicians.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
