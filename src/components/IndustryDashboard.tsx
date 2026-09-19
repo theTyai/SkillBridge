@@ -28,29 +28,59 @@ import {
   BookOpen,
   FolderGit2
 } from 'lucide-react';
+import { showToast } from './Toast';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../lib/api';
 
 interface IndustryDashboardProps {
   currentUser: User;
-  opportunities: Opportunity[];
-  applications: Application[];
   learningPrograms: LearningProgram[];
   collaborationProjects: CollaborationProject[];
   canonicalSkills: CanonicalSkill[];
-  onCreateOpportunity: (newOpp: Partial<Opportunity>) => void;
-  onUpdateApplicationStatus: (appId: string, status: ApplicationStatus, note: string) => void;
 }
 
 export const IndustryDashboard: React.FC<IndustryDashboardProps> = ({
   currentUser,
-  opportunities,
-  applications,
   learningPrograms,
   collaborationProjects,
-  canonicalSkills,
-  onCreateOpportunity,
-  onUpdateApplicationStatus
+  canonicalSkills
 }) => {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'pipeline' | 'postings' | 'collaborations' | 'analytics'>('pipeline');
+
+  // React Query Fetchers
+  const { data: opportunitiesRes, isLoading: isLoadingOpps } = useQuery({
+    queryKey: ['industry', 'opportunities', currentUser.organizationId],
+    queryFn: async () => {
+      // Pass status=all to see drafts if they exist, or just published
+      const res = await api.get(`/opportunities?organizationId=${currentUser.organizationId}&status=all`);
+      return res.data.data;
+    },
+    enabled: !!currentUser.organizationId
+  });
+
+  const { data: applicationsRes, isLoading: isLoadingApps } = useQuery({
+    queryKey: ['industry', 'applications'],
+    queryFn: async () => {
+      const res = await api.get('/applications/organization');
+      const data = res.data.data;
+      return data.map((a: any) => ({
+        ...a,
+        studentName: a.student?.user?.name,
+        studentEmail: a.student?.user?.email,
+        studentAvatar: a.student?.user?.avatarUrl,
+        studentBranch: a.student?.branch,
+        studentCgpa: a.student?.cgpa,
+        opportunityTitle: a.opportunity?.title,
+        companyName: a.opportunity?.organization?.name,
+      }));
+    }
+  });
+
+  const companyOpps = opportunitiesRes || [];
+  const companyApps = applicationsRes || [];
+
   const [selectedOppFilter, setSelectedOppFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,68 +103,94 @@ export const IndustryDashboard: React.FC<IndustryDashboardProps> = ({
   const [reviewNote, setReviewNote] = useState('');
   const [nextStage, setNextStage] = useState<ApplicationStatus>('Shortlisted');
 
+  useEscapeKey(() => {
+    if (showCreateModal) setShowCreateModal(false);
+    if (activeAppToReview) setActiveAppToReview(null);
+  }, showCreateModal || !!activeAppToReview);
+
+  const companyName = currentUser.profile?.name || 'Novatech Systems';
+  
+  const totalAppsCount = companyApps.length;
+  const shortlistedAppsCount = React.useMemo(() => companyApps.filter((a: Application) => a.status === 'SHORTLISTED' || a.status === 'INTERVIEW').length, [companyApps]);
+  const interviewAppsCount = React.useMemo(() => companyApps.filter((a: Application) => a.status === 'INTERVIEW').length, [companyApps]);
+  const offeredAppsCount = React.useMemo(() => companyApps.filter((a: Application) => a.status === 'SELECTED').length, [companyApps]);
+
   // Filtered applications
-  const filteredApplications = applications.filter(app => {
+  const filteredApplications = React.useMemo(() => companyApps.filter((app: Application) => {
     const matchOpp = selectedOppFilter === 'all' || app.opportunityId === selectedOppFilter;
     const matchStatus = selectedStatusFilter === 'all' || app.status === selectedStatusFilter;
     const matchSearch =
-      app.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.opportunityTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.studentBranch.toLowerCase().includes(searchQuery.toLowerCase());
+      (app.studentName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (app.opportunityTitle || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (app.studentBranch || '').toLowerCase().includes(searchQuery.toLowerCase());
     return matchOpp && matchStatus && matchSearch;
+  }), [companyApps, selectedOppFilter, selectedStatusFilter, searchQuery]);
+
+  // Mutations
+  const createOpportunityMutation = useMutation({
+    mutationFn: async (oppData: any) => {
+      const res = await api.post('/opportunities', oppData);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      showToast('Opportunity published successfully', 'success');
+      queryClient.invalidateQueries({ queryKey: ['industry', 'opportunities'] });
+      setShowCreateModal(false);
+      setNewTitle('');
+      setNewDescription('');
+    }
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ appId, status, note }: { appId: string; status: ApplicationStatus; note?: string }) => {
+      const res = await api.put(`/applications/${appId}/status`, { status, note });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      showToast('Application status updated', 'success');
+      queryClient.invalidateQueries({ queryKey: ['industry', 'applications'] });
+      setActiveAppToReview(null);
+      setReviewNote('');
+    }
   });
 
   const handlePostOpportunity = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
-    const reqSkills = selectedSkillIds.map(id => {
-      const canonical = canonicalSkills.find(s => s.id === id);
-      return {
-        skillId: id,
-        name: canonical ? canonical.name : id,
-        requiredLevel: 'Intermediate' as const,
-        requiredProficiency: 70,
-        required: true
-      };
-    });
-
-    onCreateOpportunity({
-      industryId: currentUser.organizationId || 'org-novatech',
-      companyName: currentUser.organizationName || 'Novatech Systems',
-      companyLogo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&q=80',
+    createOpportunityMutation.mutate({
       title: newTitle,
-      roleId: 'role-backend',
       type: newType,
-      description: newDescription || 'Exciting early-career opportunity at Novatech working on cloud-scale systems.',
-      location: newLocation,
       workMode: newWorkMode,
+      location: newLocation,
       stipendOrSalary: newStipend,
       duration: newDuration,
       deadline: newDeadline,
-      openings: Number(newOpenings),
-      status: 'published',
-      requiredSkills: reqSkills,
-      preferredSkills: ['Git & Version Control', 'Redis & Caching'],
-      eligibility: {
-        minCgpa: 7.5,
-        allowedBranches: ['Computer Science & Engineering', 'AI & Data Science'],
-        allowedGradYears: [2026, 2027]
-      }
+      openings: newOpenings,
+      description: newDescription,
+      requiredSkills: selectedSkillIds.map(id => {
+        const canonical = canonicalSkills.find(s => s.id === id);
+        return {
+          name: canonical ? canonical.name : id,
+          minimumProficiency: 70,
+          importance: 'Mandatory'
+        };
+      })
     });
-
-    setShowCreateModal(false);
-    setNewTitle('');
-    setNewDescription('');
-    alert('Opportunity published successfully to university campus marketplace!');
   };
 
   const handleExecuteStatusUpdate = () => {
     if (!activeAppToReview) return;
-    onUpdateApplicationStatus(activeAppToReview.id, nextStage, reviewNote || `Updated status to ${nextStage}`);
-    setActiveAppToReview(null);
-    setReviewNote('');
-    alert(`Candidate moved to ${nextStage}`);
+    if (activeAppToReview.status === nextStage) {
+      showToast(`Candidate is already in the ${nextStage} stage.`, 'warning');
+      return;
+    }
+    
+    updateStatusMutation.mutate({
+      appId: activeAppToReview.id,
+      status: nextStage,
+      note: reviewNote || `Updated status to ${nextStage}`
+    });
   };
 
   return (
@@ -183,7 +239,7 @@ export const IndustryDashboard: React.FC<IndustryDashboardProps> = ({
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Applicant Review Pipeline ({applications.length})</span>
+          <span>Applicant Review Pipeline ({companyApps.length})</span>
         </button>
 
         <button
@@ -194,7 +250,7 @@ export const IndustryDashboard: React.FC<IndustryDashboardProps> = ({
           }`}
         >
           <Briefcase className="w-4 h-4" />
-          <span>Active Opportunities ({opportunities.length})</span>
+          <span>Active Postings ({companyOpps.length})</span>
         </button>
 
         <button
@@ -311,7 +367,7 @@ export const IndustryDashboard: React.FC<IndustryDashboardProps> = ({
       {/* TAB 2: ACTIVE POSTINGS */}
       {activeTab === 'postings' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {opportunities.map(opp => (
+          {companyOpps.map(opp => (
             <div key={opp.id} className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
               <div className="flex items-start justify-between">
                 <div>
@@ -384,19 +440,19 @@ export const IndustryDashboard: React.FC<IndustryDashboardProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs text-center">
               <div className="text-xs text-slate-500">Total Applications</div>
-              <div className="text-2xl font-black text-slate-900 mt-1">120</div>
+              <div className="text-2xl font-black text-slate-900 mt-1">{totalAppsCount}</div>
             </div>
             <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs text-center">
               <div className="text-xs text-slate-500">Shortlisted for Rounds</div>
-              <div className="text-2xl font-black text-indigo-600 mt-1">34</div>
+              <div className="text-2xl font-black text-indigo-600 mt-1">{shortlistedAppsCount}</div>
             </div>
             <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs text-center">
               <div className="text-xs text-slate-500">Technical Interviews</div>
-              <div className="text-2xl font-black text-sky-600 mt-1">18</div>
+              <div className="text-2xl font-black text-sky-600 mt-1">{interviewAppsCount}</div>
             </div>
             <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs text-center">
               <div className="text-xs text-slate-500">Offers Extended</div>
-              <div className="text-2xl font-black text-emerald-600 mt-1">8</div>
+              <div className="text-2xl font-black text-emerald-600 mt-1">{offeredAppsCount}</div>
             </div>
           </div>
 

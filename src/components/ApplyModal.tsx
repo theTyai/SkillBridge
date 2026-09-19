@@ -12,6 +12,8 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
+import { useEscapeKey } from '../hooks/useEscapeKey';
+
 interface ApplyModalProps {
   opportunity: Opportunity | null;
   student: StudentProfile;
@@ -25,6 +27,8 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
   onClose,
   onSubmitApplication
 }) => {
+  useEscapeKey(onClose);
+
   if (!opportunity) return null;
 
   const match = calculateOpportunityMatch(student, opportunity);

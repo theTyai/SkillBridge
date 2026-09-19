@@ -8,7 +8,8 @@ import {
   LearningEnrollment,
   CareerRole,
   MatchScoreExplanation,
-  StudentSkill
+  StudentSkill,
+  User
 } from '../types';
 import { calculateOpportunityMatch } from '../utils/matchingEngine';
 import {
@@ -41,11 +42,13 @@ import {
   HelpCircle,
   QrCode
 } from 'lucide-react';
+import { showToast } from './Toast';
+import { generateRoadmapWithGemini, generateInterviewPrep, AIRoadmapResponse, AIInterviewQuestion } from '../utils/aiAPI';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../lib/api';
 
 interface StudentDashboardProps {
-  student: StudentProfile;
-  opportunities: Opportunity[];
-  applications: Application[];
+  currentUser: User;
   assessments: Assessment[];
   learningPrograms: LearningProgram[];
   careerRoles: CareerRole[];
@@ -53,15 +56,12 @@ interface StudentDashboardProps {
   onOpenMatchDetails: (opp: Opportunity, explanation: MatchScoreExplanation) => void;
   onOpenApply: (opp: Opportunity) => void;
   onOpenPassport: () => void;
-  onUpdateProfile: (updated: Partial<StudentProfile>) => void;
   activeSubTab: string;
   setActiveSubTab: (tab: string) => void;
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
-  student,
-  opportunities,
-  applications,
+  currentUser,
   assessments,
   learningPrograms,
   careerRoles,
@@ -69,27 +69,97 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onOpenMatchDetails,
   onOpenApply,
   onOpenPassport,
-  onUpdateProfile,
   activeSubTab,
   setActiveSubTab
 }) => {
+  const queryClient = useQueryClient();
+
+  // React Query Fetchers
+  const { data: studentRes, isLoading: isLoadingStudent, error: studentError } = useQuery({
+    queryKey: ['student', 'profile'],
+    queryFn: async () => {
+      const res = await api.get('/students/me');
+      const data = res.data.data;
+      // Map Prisma response to expected frontend shape
+      if (data && data.skills) {
+        data.skills = data.skills.map((s: any) => ({
+          ...s,
+          name: s.canonicalSkill?.name || 'Unknown',
+          level: s.proficiency >= 80 ? 'Advanced' : s.proficiency >= 60 ? 'Intermediate' : 'Beginner'
+        }));
+      }
+      return data;
+    },
+    retry: 1
+  });
+
+  const { data: opportunitiesRes, isLoading: isLoadingOpps } = useQuery({
+    queryKey: ['opportunities'],
+    queryFn: async () => {
+      const res = await api.get('/opportunities');
+      const data = res.data.data;
+      return data.map((o: any) => ({
+        ...o,
+        companyName: o.organization?.name,
+        companyLogo: o.organization?.logoUrl,
+        requiredSkills: o.requiredSkills?.map((rs: any) => ({
+          ...rs,
+          name: rs.canonicalSkill?.name
+        })) || []
+      }));
+    }
+  });
+
+  const { data: applicationsRes, isLoading: isLoadingApps } = useQuery({
+    queryKey: ['student', 'applications'],
+    queryFn: async () => {
+      const res = await api.get('/applications/me');
+      const data = res.data.data;
+      return data.map((a: any) => ({
+        ...a,
+        opportunityTitle: a.opportunity?.title,
+        companyName: a.opportunity?.organization?.name,
+        companyLogo: a.opportunity?.organization?.logoUrl
+      }));
+    }
+  });
+
+  // Extract from query responses
+  const student: StudentProfile | null = studentRes || null;
+  const opportunities: Opportunity[] = opportunitiesRes || [];
+  const applications: Application[] = applicationsRes || [];
+
+  // Mutations
+  const updateProfileMutation = useMutation({
+    mutationFn: async (updated: Partial<StudentProfile>) => {
+      const res = await api.put('/students/me', updated);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student', 'profile'] });
+      showToast('Profile updated successfully', 'success');
+    }
+  });
+  
+  const onUpdateProfile = (updated: Partial<StudentProfile>) => {
+    updateProfileMutation.mutate(updated);
+  };
+
   // Filters & State for Opportunities
   const [oppSearch, setOppSearch] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedWorkMode, setSelectedWorkMode] = useState<string>('all');
 
   // Selected Target Role for Skill Gap Analysis
-  const [selectedTargetRole, setSelectedTargetRole] = useState<string>(
-    student.targetRoles[0] || 'Backend Engineer'
-  );
+  const [selectedTargetRole, setSelectedTargetRole] = useState<string>('Backend Engineer');
 
   // AI Roadmap State
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
-  const [aiRoadmap, setAiRoadmap] = useState<any>(null);
+  const [aiRoadmap, setAiRoadmap] = useState<AIRoadmapResponse | null>(null);
 
   // AI Interview Questions State
   const [isGeneratingInterview, setIsGeneratingInterview] = useState(false);
-  const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
+  const [interviewQuestions, setInterviewQuestions] = useState<AIInterviewQuestion[]>([]);
 
   // Resume Upload & AI Parser State
   const [resumeText, setResumeText] = useState('');
@@ -97,64 +167,81 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [parsedData, setParsedData] = useState<any>(null);
   const [parseStatus, setParseStatus] = useState<string>('');
 
-  // Learning Program enrollments local tracking
-  const [enrolledPrograms, setEnrolledPrograms] = useState<Record<string, number>>({
-    'prog-1': 65
-  });
+  // Loading and Error States
+  if (isLoadingStudent) {
+    return <div className="p-12 text-center text-slate-500">Loading student profile...</div>;
+  }
+  
+  if (studentError || !student) {
+    return (
+      <div className="p-12 text-center text-rose-500">
+        Failed to load student profile. Please complete your profile setup.
+      </div>
+    );
+  }
+
+  // Dynamically compute stats for H6 and H7
+  const shortlistedCount = applications.filter(a => a.status === 'SHORTLISTED' || a.status === 'INTERVIEW').length;
+  // MatchScores calculates frontend if we want, but backend returns deterministic score on application.
+  // We can calculate dynamically for browsing opportunities.
+  const matchScores = opportunities.map(o => ({ opp: o, match: calculateOpportunityMatch(student, o) }));
+  const topMatch = matchScores.sort((a, b) => b.match.overallScore - a.match.overallScore)[0];
+
+  // Learning Program enrollments from profile state
+  const enrolledPrograms = student.enrolledPrograms || {};
 
   const activeRoleObj = careerRoles.find(r => r.name === selectedTargetRole) || careerRoles[0];
 
   // Calculate skill gaps against active target role
-  const roleGaps = activeRoleObj ? activeRoleObj.requiredSkills.map(req => {
-    const matched = student.skills.find(s => s.name.toLowerCase() === req.name.toLowerCase());
-    const currentProf = matched ? matched.proficiency : 0;
-    const gap = Math.max(0, req.minimumProficiency - currentProf);
-    return {
-      skillName: req.name,
-      importance: req.importance,
-      requiredProficiency: req.minimumProficiency,
-      currentProficiency: currentProf,
-      gap,
-      level: matched ? matched.level : 'Beginner',
-      verified: matched ? matched.verified : false
-    };
-  }) : [];
+  const roleGaps = React.useMemo(() => {
+    return activeRoleObj ? activeRoleObj.requiredSkills.map(req => {
+      const matched = student.skills.find(s => s.name.toLowerCase() === req.name.toLowerCase());
+      const currentProf = matched ? matched.proficiency : 0;
+      const gap = Math.max(0, req.minimumProficiency - currentProf);
+      return {
+        skillName: req.name,
+        importance: req.importance,
+        requiredProficiency: req.minimumProficiency,
+        currentProficiency: currentProf,
+        gap,
+        level: matched ? matched.level : 'Beginner',
+        verified: matched ? matched.verified : false
+      };
+    }) : [];
+  }, [activeRoleObj, student.skills]);
 
   // Compute student readiness index
-  const totalRequiredPoints = roleGaps.reduce((acc, g) => acc + g.requiredProficiency, 0);
-  const totalAttainedPoints = roleGaps.reduce((acc, g) => acc + Math.min(g.currentProficiency, g.requiredProficiency), 0);
-  const readinessIndex = totalRequiredPoints > 0 ? Math.round((totalAttainedPoints / totalRequiredPoints) * 100) : 75;
+  const readinessIndex = React.useMemo(() => {
+    const totalRequiredPoints = roleGaps.reduce((acc, g) => acc + g.requiredProficiency, 0);
+    const totalAttainedPoints = roleGaps.reduce((acc, g) => acc + Math.min(g.currentProficiency, g.requiredProficiency), 0);
+    return totalRequiredPoints > 0 ? Math.round((totalAttainedPoints / totalRequiredPoints) * 100) : 75;
+  }, [roleGaps]);
 
   // Filter opportunities
-  const filteredOpportunities = opportunities.filter(opp => {
-    const matchesSearch =
-      opp.title.toLowerCase().includes(oppSearch.toLowerCase()) ||
-      opp.companyName.toLowerCase().includes(oppSearch.toLowerCase()) ||
-      opp.requiredSkills.some(s => s.name.toLowerCase().includes(oppSearch.toLowerCase()));
-    const matchesType = selectedType === 'all' || opp.type === selectedType;
-    const matchesMode = selectedWorkMode === 'all' || opp.workMode === selectedWorkMode;
-    return matchesSearch && matchesType && matchesMode;
-  });
+  const filteredOpportunities = React.useMemo(() => {
+    return opportunities.filter(opp => {
+      const matchesSearch =
+        opp.title.toLowerCase().includes(oppSearch.toLowerCase()) ||
+        opp.companyName.toLowerCase().includes(oppSearch.toLowerCase()) ||
+        opp.requiredSkills.some(s => s.name.toLowerCase().includes(oppSearch.toLowerCase()));
+      const matchesType = selectedType === 'all' || opp.type === selectedType;
+      const matchesMode = selectedWorkMode === 'all' || opp.workMode === selectedWorkMode;
+      return matchesSearch && matchesType && matchesMode;
+    });
+  }, [opportunities, oppSearch, selectedType, selectedWorkMode]);
 
   // Trigger AI Roadmap API
   const handleGenerateRoadmap = async () => {
     setIsGeneratingRoadmap(true);
     try {
-      const res = await fetch('/api/v1/ai/roadmap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentSkills: student.skills.map(s => `${s.name} (${s.proficiency}%)`),
-          targetRole: selectedTargetRole,
-          gaps: roleGaps.filter(g => g.gap > 0).map(g => `${g.skillName} (Needs +${g.gap}%)`)
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAiRoadmap(data.data);
-      }
+      const currentSkills = student.skills.map(s => `${s.name} (${s.proficiency}%)`);
+      const gaps = roleGaps.filter(g => g.gap > 0).map(g => `${g.skillName} (Needs +${g.gap}%)`);
+      const roadmapData = await generateRoadmapWithGemini(currentSkills, selectedTargetRole, gaps);
+      setAiRoadmap(roadmapData);
+      showToast('AI Roadmap generated successfully!', 'success');
     } catch (e) {
       console.warn('Roadmap fetch error:', e);
+      showToast('Failed to generate roadmap.', 'error');
     } finally {
       setIsGeneratingRoadmap(false);
     }
@@ -164,20 +251,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const handleGenerateInterview = async () => {
     setIsGeneratingInterview(true);
     try {
-      const res = await fetch('/api/v1/ai/interview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roleName: selectedTargetRole,
-          skills: roleGaps.map(g => g.skillName)
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setInterviewQuestions(data.data);
-      }
+      const skills = roleGaps.map(g => g.skillName);
+      const prepData = await generateInterviewPrep(selectedTargetRole, skills);
+      setInterviewQuestions(prepData);
+      showToast('AI Interview Prep generated successfully!', 'success');
     } catch (e) {
       console.warn('Interview prep fetch error:', e);
+      showToast('Failed to generate interview prep.', 'error');
     } finally {
       setIsGeneratingInterview(false);
     }
@@ -229,11 +309,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   };
 
   const handleEnrollProgram = (progId: string) => {
-    setEnrolledPrograms(prev => ({
-      ...prev,
-      [progId]: prev[progId] !== undefined ? prev[progId] : 10
-    }));
-    alert('Successfully enrolled in industry learning program! Track your modules below.');
+    onUpdateProfile({
+      enrolledPrograms: {
+        ...enrolledPrograms,
+        [progId]: enrolledPrograms[progId] !== undefined ? enrolledPrograms[progId] : 10
+      }
+    });
+    showToast('Successfully enrolled in industry learning program! Track your modules below.');
   };
 
   const tabs = [
@@ -288,7 +370,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   </span>
                 </div>
                 <h2 className="text-2xl font-extrabold text-white mt-1.5 font-display">
-                  Welcome back, {student.userId === 'usr-student-1' ? 'Arjun Sharma' : 'Student'}
+                  Welcome back, {currentUser.name || 'Student'}
                 </h2>
                 <p className="text-xs text-slate-300 max-w-2xl mt-1 leading-relaxed">
                   Targeting <strong className="text-white">{student.targetRoles.join(', ')}</strong>. You have <strong>{student.skills.filter(s => s.verified).length} verified skills</strong>, an assessed readiness index of <strong>{readinessIndex}%</strong>, and <strong>{applications.length} active opportunities</strong> in your pipeline.
@@ -353,7 +435,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               </div>
               <div className="flex items-baseline gap-2 mt-2">
                 <span className="text-2xl font-extrabold text-slate-900 font-display">{applications.length}</span>
-                <span className="text-[11px] font-semibold text-sky-600">1 Shortlisted</span>
+                <span className="text-[11px] font-semibold text-sky-600">{shortlistedCount} Shortlisted</span>
               </div>
               <button
                 onClick={() => setActiveSubTab('applications')}
@@ -370,8 +452,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 <Sparkles className="w-4 h-4 text-amber-500" />
               </div>
               <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-2xl font-extrabold text-slate-900 font-display">94%</span>
-                <span className="text-xs text-slate-500">Novatech Cache</span>
+                <span className="text-2xl font-extrabold text-slate-900 font-display">{topMatch ? topMatch.match.overallScore : 0}%</span>
+                <span className="text-xs text-slate-500">{topMatch ? topMatch.opp.companyName : 'N/A'}</span>
               </div>
               <button
                 onClick={() => setActiveSubTab('opportunities')}
@@ -427,7 +509,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   Verify your Kubernetes & Docker knowledge to raise your profile trust score.
                 </p>
                 <button
-                  onClick={() => onOpenAssessment(assessments[1])}
+                  onClick={() => {
+                    const targetAsmt = assessments.find(a => a.id === 'asmt-2') || assessments[0];
+                    if (targetAsmt) onOpenAssessment(targetAsmt);
+                  }}
                   className="w-full py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold rounded-lg transition-colors text-center"
                 >
                   Launch Assessment →
@@ -447,8 +532,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </p>
                 <button
                   onClick={() => {
-                    const opp = opportunities[0];
-                    onOpenMatchDetails(opp, calculateOpportunityMatch(student, opp));
+                    const opp = opportunities.length > 0 ? opportunities[0] : null;
+                    if (opp) onOpenMatchDetails(opp, calculateOpportunityMatch(student, opp));
                   }}
                   className="w-full py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg transition-colors text-center"
                 >
@@ -1006,7 +1091,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           <div className="space-y-4">
             {applications.map(app => {
               const stages: Application['status'][] = ['Applied', 'Under Review', 'Shortlisted', 'Interview', 'Selected'];
-              const currentStageIdx = stages.indexOf(app.status);
+              const isRejected = app.status === 'Rejected';
+              const isWithdrawn = app.status === 'Withdrawn';
+              const terminalStatus = isRejected || isWithdrawn;
+              const displayIdx = terminalStatus 
+                ? Math.max(0, ...app.events.map(e => stages.indexOf(e.status as any)))
+                : stages.indexOf(app.status);
 
               return (
                 <div key={app.id} className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-6">
@@ -1022,7 +1112,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full border ${isRejected ? 'bg-rose-50 text-rose-700 border-rose-200' : isWithdrawn ? 'bg-slate-100 text-slate-700 border-slate-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
                         Status: {app.status}
                       </span>
                       <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
@@ -1036,24 +1126,31 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-200 -translate-y-1/2 z-0" />
                     <div className="relative z-10 flex justify-between">
                       {stages.map((stage, idx) => {
-                        const isDone = currentStageIdx >= idx;
-                        const isCurrent = app.status === stage;
+                        const isDone = displayIdx >= idx;
+                        const isCurrent = displayIdx === idx;
+                        const isTerminalNode = terminalStatus && isCurrent;
 
                         return (
                           <div key={stage} className="flex flex-col items-center">
                             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                              isCurrent
+                              isTerminalNode && isRejected
+                                ? 'bg-rose-500 text-white ring-4 ring-rose-100 shadow-xs'
+                                : isTerminalNode && isWithdrawn
+                                ? 'bg-slate-500 text-white ring-4 ring-slate-100 shadow-xs'
+                                : isCurrent && !terminalStatus
                                 ? 'bg-indigo-600 text-white ring-4 ring-indigo-100 shadow-xs'
                                 : isDone
                                 ? 'bg-emerald-500 text-white'
                                 : 'bg-white border-2 border-slate-300 text-slate-400'
                             }`}>
-                              {isDone ? '✓' : idx + 1}
+                              {isTerminalNode ? 'X' : (isDone && !isCurrent) ? '✓' : idx + 1}
                             </div>
                             <span className={`text-[11px] font-semibold mt-1.5 ${
-                              isCurrent ? 'text-indigo-700 font-bold' : isDone ? 'text-slate-800' : 'text-slate-400'
+                              isTerminalNode && isRejected ? 'text-rose-700 font-bold'
+                              : isTerminalNode && isWithdrawn ? 'text-slate-700 font-bold'
+                              : isCurrent ? 'text-indigo-700 font-bold' : isDone ? 'text-slate-800' : 'text-slate-400'
                             }`}>
-                              {stage}
+                              {isTerminalNode ? app.status : stage}
                             </span>
                           </div>
                         );
@@ -1168,7 +1265,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           <button
                             onClick={() => {
                               const updated = Math.min(100, currentProgress + 35);
-                              setEnrolledPrograms(prev => ({ ...prev, [prog.id]: updated }));
+                              onUpdateProfile({ enrolledPrograms: { ...enrolledPrograms, [prog.id]: updated } });
                             }}
                             className="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-lg transition-colors text-center"
                           >

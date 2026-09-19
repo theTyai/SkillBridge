@@ -23,6 +23,10 @@ import {
   ArrowRight,
   Plus
 } from 'lucide-react';
+import { showToast } from './Toast';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../lib/api';
 
 interface InstitutionDashboardProps {
   analytics: InstitutionAnalytics;
@@ -37,60 +41,71 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
   currentUser,
   onAddSkill
 }) => {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'analytics' | 'verification' | 'taxonomy'>('analytics');
   const [searchTaxonomy, setSearchTaxonomy] = useState('');
-
-  // Local pending verifications queue state
-  const [pendingCertifications, setPendingCertifications] = useState<StudentCertification[]>([
-    {
-      id: 'cert-pending-1',
-      title: 'Docker Certified Associate Preparatory Exam',
-      issuer: 'Docker Community Academy',
-      issueDate: '2026-02-01',
-      credentialId: 'DCA-PREP-3312',
-      verificationStatus: 'pending'
-    },
-    {
-      id: 'cert-pending-2',
-      title: 'Kubernetes Application Developer (CKAD)',
-      issuer: 'Linux Foundation & CNCF',
-      issueDate: '2026-01-28',
-      credentialId: 'LF-CKAD-99120',
-      verificationStatus: 'pending'
-    },
-    {
-      id: 'cert-pending-3',
-      title: 'Google Cloud Certified Professional Cloud Architect',
-      issuer: 'Google Cloud',
-      issueDate: '2026-02-10',
-      credentialId: 'GCP-PCA-48201',
-      verificationStatus: 'pending'
-    }
-  ]);
-
   const [verifiedLog, setVerifiedLog] = useState<{ id: string; title: string; status: string; verifier: string; time: string }[]>([]);
+
+  // Fetch Institution Students (which includes unverified skills)
+  const { data: studentsRes, isLoading } = useQuery({
+    queryKey: ['institution', 'students'],
+    queryFn: async () => {
+      const res = await api.get('/institutions/students');
+      return res.data.data;
+    }
+  });
+
+  const students = studentsRes || [];
+  
+  // Flatten students' unverified skills into a "pendingVerifications" list
+  const pendingSkills = React.useMemo(() => {
+    return students.flatMap((s: any) => 
+      s.skills.map((sk: any) => ({
+        id: sk.id,
+        title: sk.canonicalSkill?.name || 'Unknown Skill',
+        issuer: 'Self-Reported / Assessment',
+        issuedDate: sk.createdAt || new Date().toISOString(),
+        credentialUrl: '#',
+        studentName: s.user?.name,
+        studentId: s.id
+      }))
+    );
+  }, [students]);
+
+  const verifyMutation = useMutation({
+    mutationFn: async ({ skillId, verified }: { skillId: string; verified: boolean }) => {
+      const res = await api.post('/institutions/verify-skill', { skillId, verified, note: 'Admin verified' });
+      return res.data.data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['institution', 'students'] });
+      
+      const skillName = pendingSkills.find(s => s.id === variables.skillId)?.title || 'Skill';
+      
+      setVerifiedLog(prev => [{
+        id: variables.skillId,
+        title: skillName,
+        status: variables.verified ? 'Approved' : 'Rejected',
+        verifier: currentUser.profile?.name || 'Admin',
+        time: 'Just now'
+      }, ...prev].slice(0, 5));
+
+      showToast(`Skill ${variables.verified ? 'approved' : 'rejected'} successfully`, 'success');
+    },
+    onError: () => {
+      showToast('Failed to verify skill', 'error');
+    }
+  });
 
   // Add new skill modal state
   const [showAddSkillModal, setShowAddSkillModal] = useState(false);
+  useEscapeKey(() => setShowAddSkillModal(false), showAddSkillModal);
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillCategory, setNewSkillCategory] = useState<CanonicalSkill['category']>('Cloud & DevOps');
   const [newSkillAliases, setNewSkillAliases] = useState('');
 
   const handleVerifyCredential = (certId: string, approved: boolean) => {
-    const cert = pendingCertifications.find(c => c.id === certId);
-    if (!cert) return;
-
-    setPendingCertifications(prev => prev.filter(c => c.id !== certId));
-    setVerifiedLog(prev => [
-      {
-        id: certId,
-        title: cert.title,
-        status: approved ? 'Verified' : 'Rejected',
-        verifier: currentUser.name,
-        time: new Date().toLocaleTimeString()
-      },
-      ...prev
-    ]);
+    verifyMutation.mutate({ skillId: certId, verified: approved });
   };
 
   const handleCreateSkill = (e: React.FormEvent) => {
@@ -112,7 +127,7 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
     setShowAddSkillModal(false);
     setNewSkillName('');
     setNewSkillAliases('');
-    alert(`Canonical skill "${newSkillName}" created in platform taxonomy.`);
+    showToast(`Canonical skill "${newSkillName}" created in platform taxonomy.`, 'success');
   };
 
   const handleExportReport = () => {
@@ -120,7 +135,12 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
       "Metric,Value\n" +
       `Total Students,${analytics.totalStudents}\n` +
       `Verified Students,${analytics.verifiedStudents}\n` +
+      `Total Faculty,${analytics.totalFaculty}\n` +
+      `Partner Companies,${analytics.partnerCompanies}\n` +
+      `Active Opportunities,${analytics.activeOpportunities}\n` +
+      `Total Applications,${analytics.totalApplications}\n` +
       `Active Internships,${analytics.activeInternships}\n` +
+      `Placements Count,${analytics.placementsCount}\n` +
       `Placement Rate,${analytics.placementRate}%\n` +
       `Average Stipend,${analytics.averageStipend}\n`;
     const encodedUri = encodeURI(csvContent);
@@ -132,11 +152,11 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
     document.body.removeChild(link);
   };
 
-  const filteredSkills = canonicalSkills.filter(sk =>
+  const filteredSkills = React.useMemo(() => canonicalSkills.filter(sk =>
     sk.name.toLowerCase().includes(searchTaxonomy.toLowerCase()) ||
     sk.category.toLowerCase().includes(searchTaxonomy.toLowerCase()) ||
     sk.aliases.some(a => a.toLowerCase().includes(searchTaxonomy.toLowerCase()))
-  );
+  ), [canonicalSkills, searchTaxonomy]);
 
   return (
     <div className="space-y-6">
@@ -186,26 +206,25 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
-          <span>Verification Queue ({pendingCertifications.length})</span>
+          <span>Verification Queue ({pendingSkills.length})</span>
         </button>
-
         <button
           onClick={() => setActiveTab('taxonomy')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${
-            activeTab === 'taxonomy' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
+            activeTab === 'taxonomy'
+              ? 'bg-indigo-600 text-white shadow-xs font-bold'
+              : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
           }`}
         >
-          <Layers className="w-4 h-4" />
-          <span>Skill Taxonomy Manager ({canonicalSkills.length})</span>
+          <Building className="w-4 h-4" />
+          <span>Curriculum Taxonomy</span>
         </button>
       </div>
 
-      {/* TAB 1: READINESS & PLACEMENT ANALYTICS */}
+      {/* TAB 1: ANALYTICS */}
       {activeTab === 'analytics' && (
         <div className="space-y-6">
-          
-          {/* Top Metric Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <div className="text-xs text-slate-500 font-medium">Total Enrolled Students</div>
               <div className="text-2xl font-black text-slate-900 mt-1 font-display">{analytics.totalStudents.toLocaleString()}</div>
@@ -317,7 +336,7 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
           </div>
 
           <div className="space-y-3">
-            {pendingCertifications.map(cert => (
+            {pendingSkills.map(cert => (
               <div
                 key={cert.id}
                 className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
@@ -357,7 +376,7 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
               </div>
             ))}
 
-            {pendingCertifications.length === 0 && (
+            {pendingSkills.length === 0 && (
               <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-500">
                 All verification requests have been audited. No pending documents!
               </div>

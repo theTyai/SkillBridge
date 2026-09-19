@@ -18,6 +18,8 @@ import {
   Award
 } from 'lucide-react';
 
+import { useEscapeKey } from '../hooks/useEscapeKey';
+
 interface PublicPortfolioModalProps {
   student: StudentProfile;
   onClose: () => void;
@@ -29,6 +31,7 @@ export const PublicPortfolioModal: React.FC<PublicPortfolioModalProps> = ({
   onClose,
   onTogglePrivacy
 }) => {
+  useEscapeKey(onClose);
   const [copied, setCopied] = useState(false);
   const publicUrl = `https://skillbridge.edu/passport/${student.portfolioSlug}`;
 

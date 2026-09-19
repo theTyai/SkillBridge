@@ -65,6 +65,7 @@ export interface StudentProfile {
   projects: StudentProject[];
   certifications: StudentCertification[];
   experiences: StudentExperience[];
+  enrolledPrograms?: Record<string, number>;
 }
 
 export interface StudentProject {

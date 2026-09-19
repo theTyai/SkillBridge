@@ -14,7 +14,8 @@ import {
   NotificationItem,
   MatchScoreExplanation,
   StudentSkill,
-  ApplicationStatus
+  ApplicationStatus,
+  SkillLevel
 } from './types';
 import {
   demoUsers,
@@ -35,27 +36,35 @@ import { StudentDashboard } from './components/StudentDashboard';
 import { IndustryDashboard } from './components/IndustryDashboard';
 import { FacultyDashboard } from './components/FacultyDashboard';
 import { InstitutionDashboard } from './components/InstitutionDashboard';
+import { ToastProvider, showToast } from './components/Toast';
 import { MatchExplanationModal } from './components/MatchExplanationModal';
 import { AssessmentRunnerModal } from './components/AssessmentRunnerModal';
 import { PublicPortfolioModal } from './components/PublicPortfolioModal';
 import { NotificationModal } from './components/NotificationModal';
 import { ApplyModal } from './components/ApplyModal';
+import { ConfirmModal } from './components/ConfirmModal';
+
+import { useAuth } from './context/AuthContext';
+import { usePersistentState } from './hooks/usePersistentState';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import api from './lib/api';
 
 export default function App() {
-  // Current active user / persona
-  const [currentUser, setCurrentUser] = useState<User>(demoUsers[0]);
-
-  // Master domain states
-  const [studentProfile, setStudentProfile] = useState<StudentProfile>(initialStudentProfile);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(initialOpportunities);
-  const [applications, setApplications] = useState<Application[]>(initialApplications);
-  const [assessments, setAssessments] = useState<Assessment[]>(initialAssessments);
-  const [learningPrograms, setLearningPrograms] = useState<LearningProgram[]>(initialLearningPrograms);
-  const [collaborationProjects, setCollaborationProjects] = useState<CollaborationProject[]>(initialCollaborationProjects);
-  const [facultyOpportunities, setFacultyOpportunities] = useState<FacultyOpportunity[]>(initialFacultyOpportunities);
-  const [canonicalSkills, setCanonicalSkills] = useState<CanonicalSkill[]>(initialCanonicalSkills);
-  const [institutionAnalytics, setInstitutionAnalytics] = useState<InstitutionAnalytics>(initialInstitutionAnalytics);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
+  const { currentUser, loading } = useAuth();
+  const queryClient = useQueryClient();
+  
+  // Master domain states (Persisted to localStorage)
+  const SESSION_VER = '1.0';
+  const [studentProfile, setStudentProfile] = usePersistentState<StudentProfile>('sb_studentProfile', initialStudentProfile, SESSION_VER);
+  const [opportunities, setOpportunities] = usePersistentState<Opportunity[]>('sb_opportunities', initialOpportunities, SESSION_VER);
+  const [applications, setApplications] = usePersistentState<Application[]>('sb_applications', initialApplications, SESSION_VER);
+  const [assessments, setAssessments] = usePersistentState<Assessment[]>('sb_assessments', initialAssessments, SESSION_VER);
+  const [learningPrograms, setLearningPrograms] = usePersistentState<LearningProgram[]>('sb_learningPrograms', initialLearningPrograms, SESSION_VER);
+  const [collaborationProjects, setCollaborationProjects] = usePersistentState<CollaborationProject[]>('sb_collaborationProjects', initialCollaborationProjects, SESSION_VER);
+  const [facultyOpportunities, setFacultyOpportunities] = usePersistentState<FacultyOpportunity[]>('sb_facultyOpportunities', initialFacultyOpportunities, SESSION_VER);
+  const [canonicalSkills, setCanonicalSkills] = usePersistentState<CanonicalSkill[]>('sb_canonicalSkills', initialCanonicalSkills, SESSION_VER);
+  const [institutionAnalytics, setInstitutionAnalytics] = usePersistentState<InstitutionAnalytics>('sb_institutionAnalytics', initialInstitutionAnalytics, SESSION_VER);
+  const [notifications, setNotifications] = usePersistentState<NotificationItem[]>('sb_notifications', initialNotifications, SESSION_VER);
 
   // Student active sub-tab
   const [studentSubTab, setStudentSubTab] = useState<string>('overview');
@@ -69,12 +78,6 @@ export default function App() {
   const [oppToApply, setOppToApply] = useState<Opportunity | null>(null);
   const [isPassportOpen, setIsPassportOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-
-  // User role switch handler
-  const handleRoleSwitch = (role: UserRole) => {
-    const user = demoUsers.find(u => u.role === role) || demoUsers[0];
-    setCurrentUser(user);
-  };
 
   // Student Profile updates
   const handleUpdateStudentProfile = (updated: Partial<StudentProfile>) => {
@@ -100,7 +103,7 @@ export default function App() {
           ...sk,
           proficiency: Math.max(sk.proficiency, match.proficiency || score),
           verified: passed ? true : sk.verified,
-          level: (score >= 80 ? 'Advanced' : score >= 60 ? 'Intermediate' : 'Beginner') as any
+          level: (score >= 80 ? 'Advanced' : score >= 60 ? 'Intermediate' : 'Beginner') as SkillLevel
         };
       }
       if (asmt.skillsCovered.some(sc => sc.toLowerCase() === sk.name.toLowerCase())) {
@@ -108,7 +111,7 @@ export default function App() {
           ...sk,
           proficiency: Math.max(sk.proficiency, score),
           verified: passed ? true : sk.verified,
-          level: (score >= 80 ? 'Advanced' : score >= 60 ? 'Intermediate' : 'Beginner') as any
+          level: (score >= 80 ? 'Advanced' : score >= 60 ? 'Intermediate' : 'Beginner') as SkillLevel
         };
       }
       return sk;
@@ -123,7 +126,7 @@ export default function App() {
         issuer: 'Apex Academic & Skill Council',
         issueDate: new Date().toISOString().split('T')[0],
         credentialId: `SB-VERIFIED-${Math.floor(100000 + Math.random() * 900000)}`,
-        verificationStatus: 'verified'
+        verificationStatus: 'pending'
       });
     }
 
@@ -193,95 +196,29 @@ export default function App() {
   };
 
   // Handle application submission
+  const applyMutation = useMutation({
+    mutationFn: async (newApp: Partial<Application>) => {
+      const res = await api.post(`/applications`, {
+        opportunityId: newApp.opportunityId,
+        coverNote: newApp.coverNote,
+        resumeUrl: newApp.resumeUrl
+      });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      showToast('Application successfully submitted!', 'success');
+      // Force refresh of applications and opportunities
+      queryClient.invalidateQueries({ queryKey: ['student', 'applications'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    },
+    onError: (err: any) => {
+      showToast(err.response?.data?.error || 'Failed to submit application', 'error');
+    }
+  });
+
   const handleSubmitApplication = (newApp: Partial<Application>) => {
-    const app: Application = {
-      id: newApp.id || `app-${Date.now()}`,
-      opportunityId: newApp.opportunityId || '',
-      opportunityTitle: newApp.opportunityTitle || '',
-      companyName: newApp.companyName || '',
-      companyLogo: newApp.companyLogo || '',
-      studentId: newApp.studentId || currentUser.id,
-      studentName: newApp.studentName || currentUser.name,
-      studentEmail: newApp.studentEmail || currentUser.email,
-      studentBranch: newApp.studentBranch || studentProfile.branch,
-      studentCgpa: newApp.studentCgpa || studentProfile.cgpa,
-      studentAvatar: newApp.studentAvatar || currentUser.avatarUrl,
-      status: 'Applied',
-      appliedAt: newApp.appliedAt || new Date().toISOString().split('T')[0],
-      resumeUrl: newApp.resumeUrl || '',
-      coverNote: newApp.coverNote || '',
-      matchScore: newApp.matchScore || 85,
-      events: newApp.events || [
-        {
-          id: `evt-${Date.now()}`,
-          status: 'Applied',
-          note: 'Application transmitted via campus portal.',
-          createdAt: new Date().toISOString().split('T')[0],
-          createdBy: currentUser.name
-        }
-      ]
-    };
-
-    setApplications(prev => [app, ...prev]);
-
-    // Update applicant count in opportunity
-    setOpportunities(prev =>
-      prev.map(o => (o.id === app.opportunityId ? { ...o, applicantsCount: o.applicantsCount + 1 } : o))
-    );
-
-    // Add notification
-    setNotifications(prev => [
-      {
-        id: `notif-${Date.now()}`,
-        userId: 'usr-industry-1',
-        title: `New Candidate: ${app.studentName}`,
-        message: `${app.studentName} applied for ${app.opportunityTitle} with an assessed ${app.matchScore}% compatibility score.`,
-        type: 'application',
-        read: false,
-        createdAt: new Date().toISOString()
-      },
-      ...prev
-    ]);
-  };
-
-  // Handle status update by Recruiter
-  const handleUpdateApplicationStatus = (appId: string, status: ApplicationStatus, note: string) => {
-    setApplications(prev =>
-      prev.map(a => {
-        if (a.id === appId) {
-          return {
-            ...a,
-            status,
-            events: [
-              ...a.events,
-              {
-                id: `evt-${Date.now()}`,
-                status,
-                note,
-                createdAt: new Date().toLocaleDateString(),
-                createdBy: currentUser.name
-              }
-            ]
-          };
-        }
-        return a;
-      })
-    );
-
-    // Notify student
-    setNotifications(prev => [
-      {
-        id: `notif-${Date.now()}`,
-        userId: 'usr-student-1',
-        title: `Application Update: ${status}`,
-        message: `${currentUser.organizationName || 'Recruiter'} has moved your application status to "${status}". Note: "${note}"`,
-        type: 'application',
-        read: false,
-        createdAt: new Date().toISOString(),
-        link: 'applications'
-      },
-      ...prev
-    ]);
+    applyMutation.mutate(newApp);
+    setOppToApply(null);
   };
 
   // Canonical skill creation
@@ -299,25 +236,30 @@ export default function App() {
   };
 
   // Reset demo data helper
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+
   const handleResetData = () => {
     setStudentProfile(initialStudentProfile);
     setOpportunities(initialOpportunities);
     setApplications(initialApplications);
     setAssessments(initialAssessments);
     setNotifications(initialNotifications);
-    alert('SkillBridge demo data has been reset to default state.');
+    showToast('SkillBridge demo data has been reset to default state.', 'success');
   };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-slate-500">Loading SkillBridge...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+      <ToastProvider />
       
       {/* Platform Navigation Bar with multi-role switcher */}
       <Navbar
-        currentUser={currentUser}
-        onRoleSwitch={handleRoleSwitch}
         notifications={notifications}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
-        onResetData={handleResetData}
+        onResetData={() => setIsResetModalOpen(true)}
         activeTab={studentSubTab}
         setActiveTab={setStudentSubTab}
       />
@@ -325,53 +267,53 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        {/* Render Dashboard based on current persona */}
-        {currentUser.role === 'student' && (
-          <StudentDashboard
-            student={studentProfile}
-            opportunities={opportunities}
-            applications={applications}
-            assessments={assessments}
-            learningPrograms={learningPrograms}
-            careerRoles={initialCareerRoles}
-            onOpenAssessment={asmt => setSelectedAssessmentForRunner(asmt)}
-            onOpenMatchDetails={(opp, exp) => setMatchDetails({ opp, explanation: exp })}
-            onOpenApply={opp => setOppToApply(opp)}
-            onOpenPassport={() => setIsPassportOpen(true)}
-            onUpdateProfile={handleUpdateStudentProfile}
-            activeSubTab={studentSubTab}
-            setActiveSubTab={setStudentSubTab}
-          />
-        )}
+        {!currentUser ? (
+          <div className="flex flex-col items-center justify-center h-96 text-center">
+            <h2 className="text-2xl font-bold text-slate-800">Welcome to SkillBridge</h2>
+            <p className="text-slate-500 mt-2 max-w-md">Please use the "Role Mode" switcher in the top navigation bar to select a persona and log in to explore the platform.</p>
+          </div>
+        ) : (
+          <>
+            {currentUser.role === 'STUDENT' && (
+              <StudentDashboard
+                currentUser={currentUser as any}
+                assessments={assessments}
+                learningPrograms={learningPrograms}
+                careerRoles={initialCareerRoles}
+                onOpenAssessment={asmt => setSelectedAssessmentForRunner(asmt)}
+                onOpenMatchDetails={(opp, exp) => setMatchDetails({ opp, explanation: exp })}
+                onOpenApply={opp => setOppToApply(opp)}
+                onOpenPassport={() => setIsPassportOpen(true)}
+                activeSubTab={studentSubTab}
+                setActiveSubTab={setStudentSubTab}
+              />
+            )}
 
-        {currentUser.role === 'industry' && (
-          <IndustryDashboard
-            currentUser={currentUser}
-            opportunities={opportunities}
-            applications={applications}
-            learningPrograms={learningPrograms}
-            collaborationProjects={collaborationProjects}
-            canonicalSkills={canonicalSkills}
-            onCreateOpportunity={handleCreateOpportunity}
-            onUpdateApplicationStatus={handleUpdateApplicationStatus}
-          />
-        )}
+            {currentUser.role === 'INDUSTRY' && (
+              <IndustryDashboard
+                currentUser={currentUser as any}
+                learningPrograms={learningPrograms}
+                collaborationProjects={collaborationProjects}
+                canonicalSkills={canonicalSkills}
+              />
+            )}
 
-        {currentUser.role === 'academician' && (
-          <FacultyDashboard
-            currentUser={currentUser}
-            facultyOpportunities={facultyOpportunities}
-            collaborationProjects={collaborationProjects}
-          />
-        )}
+            {currentUser.role === 'ACADEMICIAN' && (
+              <FacultyDashboard
+                currentUser={currentUser as any}
+                facultyOpportunities={facultyOpportunities}
+                collaborationProjects={collaborationProjects}
+              />
+            )}
 
-        {currentUser.role === 'admin' && (
-          <InstitutionDashboard
-            analytics={institutionAnalytics}
-            canonicalSkills={canonicalSkills}
-            currentUser={currentUser}
-            onAddSkill={handleAddCanonicalSkill}
-          />
+            {currentUser.role === 'ADMIN' && (
+              <InstitutionDashboard
+                analytics={institutionAnalytics}
+                canonicalSkills={canonicalSkills}
+                currentUser={currentUser as any}
+              />
+            )}
+          </>
         )}
 
       </main>
@@ -424,6 +366,15 @@ export default function App() {
         student={studentProfile}
         onClose={() => setOppToApply(null)}
         onSubmitApplication={handleSubmitApplication}
+      />
+
+      <ConfirmModal
+        isOpen={isResetModalOpen}
+        title="Reset Demo Data"
+        message="Are you sure you want to reset the platform to its default seed data? This will wipe all changes, applications, and created content."
+        confirmLabel="Yes, Reset Data"
+        onConfirm={handleResetData}
+        onCancel={() => setIsResetModalOpen(false)}
       />
 
       {/* MODAL: Living Career Passport & QR Code */}

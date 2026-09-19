@@ -13,6 +13,8 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
+import { useEscapeKey } from '../hooks/useEscapeKey';
+
 interface AssessmentRunnerModalProps {
   assessment: Assessment;
   onClose: () => void;
@@ -24,12 +26,19 @@ export const AssessmentRunnerModal: React.FC<AssessmentRunnerModalProps> = ({
   onClose,
   onComplete
 }) => {
+  useEscapeKey(onClose);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
   const [secondsLeft, setSecondsLeft] = useState(assessment.durationMinutes * 60);
   const [isTimed, setIsTimed] = useState(true);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
+
+  // Keep a fresh reference to handleSubmit for the timer
+  const handleSubmitRef = React.useRef<() => void>(() => {});
+  React.useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  });
 
   // Timer
   useEffect(() => {
@@ -38,7 +47,7 @@ export const AssessmentRunnerModal: React.FC<AssessmentRunnerModalProps> = ({
       setSecondsLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleSubmit();
+          handleSubmitRef.current();
           return 0;
         }
         return prev - 1;
@@ -78,7 +87,9 @@ export const AssessmentRunnerModal: React.FC<AssessmentRunnerModalProps> = ({
       skillScores[q.skillId].count += 1;
     });
 
-    const calculatedScore = Math.round(totalPoints / assessment.questions.length);
+    const calculatedScore = assessment.questions.length > 0 
+      ? Math.round(totalPoints / assessment.questions.length) 
+      : 0;
     setFinalScore(calculatedScore);
     setIsSubmitted(true);
 
@@ -271,7 +282,7 @@ export const AssessmentRunnerModal: React.FC<AssessmentRunnerModalProps> = ({
               {assessment.questions.map((q, idx) => {
                 const userChoice = selectedAnswers[q.id];
                 const selectedOpt = q.options?.find(o => o.id === userChoice);
-                const isCorrect = selectedOpt?.isCorrect;
+                const isCorrect = selectedOpt ? selectedOpt.points === 100 : false;
 
                 return (
                   <div key={q.id} className="p-3 bg-white rounded-lg border border-slate-200 text-xs space-y-1">

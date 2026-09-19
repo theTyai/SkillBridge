@@ -15,6 +15,8 @@ import {
   MapPin
 } from 'lucide-react';
 
+import { useEscapeKey } from '../hooks/useEscapeKey';
+
 interface MatchExplanationModalProps {
   opportunity: Opportunity | null;
   matchExplanation: MatchScoreExplanation | null;
@@ -28,6 +30,8 @@ export const MatchExplanationModal: React.FC<MatchExplanationModalProps> = ({
   onClose,
   onApply
 }) => {
+  useEscapeKey(onClose);
+
   if (!opportunity || !matchExplanation) return null;
 
   const getScoreColor = (score: number) => {

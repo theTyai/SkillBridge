@@ -59,11 +59,18 @@ export function calculateOpportunityMatch(
   const requiredSkillScore = Math.round((requiredScoreSum / totalRequired) * 100);
   const proficiencyFitScore = Math.round((proficiencyFitSum / totalRequired) * 100);
 
-  // Preferred skills match
+  // Preferred skills match - Optimized
   let preferredMatched = 0;
   if (opportunity.preferredSkills.length > 0) {
+    const validStudentSkills = student.skills
+      .map(s => s.name.toLowerCase().trim())
+      .filter(name => name.length > 0); // avoid empty string matching everything
+
     for (const pref of opportunity.preferredSkills) {
-      if (student.skills.some(s => s.name.toLowerCase().includes(pref.toLowerCase()) || pref.toLowerCase().includes(s.name.toLowerCase()))) {
+      const prefLower = pref.toLowerCase().trim();
+      if (!prefLower) continue;
+      
+      if (validStudentSkills.some(sName => sName.includes(prefLower) || prefLower.includes(sName))) {
         preferredMatched++;
       }
     }
@@ -72,10 +79,16 @@ export function calculateOpportunityMatch(
     ? Math.round((preferredMatched / opportunity.preferredSkills.length) * 100)
     : 80;
 
-  // Role interest match
-  const roleMatches = student.targetRoles.some(r => 
-    opportunity.title.toLowerCase().includes(r.toLowerCase()) || 
-    r.toLowerCase().includes(opportunity.roleId.replace('role-', ''))
+  // Role interest match - Optimized
+  const targetRolesLower = student.targetRoles
+    .map(r => r.toLowerCase().trim())
+    .filter(r => r.length > 0);
+  
+  const oppTitleLower = opportunity.title.toLowerCase();
+  const oppRoleLower = opportunity.roleId.replace('role-', '').toLowerCase();
+
+  const roleMatches = targetRolesLower.some(r => 
+    oppTitleLower.includes(r) || r.includes(oppRoleLower)
   );
   const roleInterestScore = roleMatches ? 100 : 60;
 

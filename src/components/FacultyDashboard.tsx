@@ -21,6 +21,8 @@ import {
   Calendar,
   FileText
 } from 'lucide-react';
+import { showToast } from './Toast';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface FacultyDashboardProps {
   currentUser: User;
@@ -34,15 +36,30 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
   collaborationProjects
 }) => {
   const [selectedType, setSelectedType] = useState<string>('all');
-  const [registeredIds, setRegisteredIds] = useState<string[]>(['fac-3']);
+  const [selectedOppToApply, setSelectedOppToApply] = useState<FacultyOpportunity | null>(null);
+  
+  useEscapeKey(() => setSelectedOppToApply(null), !!selectedOppToApply);
 
-  const filteredOpps = facultyOpportunities.filter(
+  const [proposalText, setProposalText] = useState('');
+  const [facultyApps, setFacultyApps] = useState<Record<string, { status: string; date: string }>>({
+    'fac-3': { status: 'Under Review', date: '2026-02-15' }
+  });
+
+  const filteredOpps = React.useMemo(() => facultyOpportunities.filter(
     opp => selectedType === 'all' || opp.type === selectedType
-  );
+  ), [facultyOpportunities, selectedType]);
 
-  const handleRegister = (id: string, title: string) => {
-    setRegisteredIds(prev => [...prev, id]);
-    alert(`Successfully registered for "${title}". Confirmation has been sent to your academic email.`);
+  const handleSubmitProposal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOppToApply) return;
+    
+    setFacultyApps(prev => ({
+      ...prev,
+      [selectedOppToApply.id]: { status: 'Applied', date: new Date().toISOString().split('T')[0] }
+    }));
+    setSelectedOppToApply(null);
+    setProposalText('');
+    showToast(`Proposal submitted successfully for "${selectedOppToApply.title}".`, 'success');
   };
 
   return (
@@ -135,7 +152,8 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredOpps.map(opp => {
-            const isRegistered = registeredIds.includes(opp.id);
+            const app = facultyApps[opp.id];
+            const isRegistered = !!app;
             return (
               <div key={opp.id} className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-4 flex flex-col justify-between">
                 <div>
@@ -167,12 +185,15 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                   <span className="text-xs text-slate-500 font-medium">{opp.duration}</span>
                   {isRegistered ? (
-                    <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" /> Registered
-                    </span>
+                    <div className="flex flex-col items-end">
+                      <span className="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> {app.status}
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-1">Applied: {app.date}</span>
+                    </div>
                   ) : (
                     <button
-                      onClick={() => handleRegister(opp.id, opp.title)}
+                      onClick={() => setSelectedOppToApply(opp)}
                       className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
                     >
                       Express Interest / Apply
@@ -221,6 +242,59 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Application/Proposal Modal */}
+      {selectedOppToApply && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">Submit Proposal / Application</h3>
+              <button onClick={() => setSelectedOppToApply(null)} className="text-slate-400 hover:text-slate-700">✕</button>
+            </div>
+            
+            <form onSubmit={handleSubmitProposal} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Applying for:
+                </label>
+                <div className="text-sm font-semibold text-indigo-700 p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+                  {selectedOppToApply.title} ({selectedOppToApply.companyName})
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Motivation / Abstract / Pitch
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  value={proposalText}
+                  onChange={e => setProposalText(e.target.value)}
+                  placeholder="Outline your research domain, expected outcomes, or reason for joining..."
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedOppToApply(null)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 text-xs font-bold rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
+                >
+                  Submit Application
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
