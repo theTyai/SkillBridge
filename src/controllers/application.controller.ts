@@ -39,11 +39,38 @@ export const submitApplication = async (req: Request, res: Response) => {
 
     const student = await db.studentProfile.findUnique({
       where: { userId },
-      include: { skills: true }
+      include: { skills: true, projects: { select: { id: true } } }
     });
 
     if (!student) {
       return res.status(404).json({ error: 'Student profile not found. Please complete your profile first.' });
+    }
+
+    // An application is a trust-bearing action. Require a usable career record
+    // plus at least one skill explicitly verified by the student's institution.
+    const missingProfileFields = [
+      !student.studentRollNo && 'student ID',
+      !student.branch && 'branch',
+      !student.degree && 'degree',
+      !student.graduationYear && 'graduation year',
+      !student.bio && 'professional summary',
+      student.targetRoles.length === 0 && 'a target role',
+      !student.resumeUrl && 'resume',
+      student.projects.length === 0 && 'a project or portfolio evidence'
+    ].filter(Boolean);
+    if (missingProfileFields.length > 0) {
+      return res.status(403).json({
+        error: `Complete your profile before applying: add ${missingProfileFields.join(', ')}.`,
+        code: 'PROFILE_INCOMPLETE'
+      });
+    }
+
+    const hasInstitutionVerifiedSkill = student.skills.some(skill => skill.verified && Boolean(skill.verifiedBy));
+    if (!hasInstitutionVerifiedSkill) {
+      return res.status(403).json({
+        error: 'Your profile must be verified by your institution before you can apply. Ask your placement cell to verify at least one submitted skill.',
+        code: 'PROFILE_NOT_INSTITUTION_VERIFIED'
+      });
     }
 
     const opportunity = await db.opportunity.findUnique({
@@ -250,4 +277,3 @@ export const updateApplicationStatus = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to update application status' });
   }
 };
-

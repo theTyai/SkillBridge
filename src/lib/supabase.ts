@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || import.meta.env?.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || import.meta.env?.VITE_SUPABASE_ANON_KEY;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const isNode = typeof process !== 'undefined';
+
+const supabaseUrl = (isNode ? process.env.VITE_SUPABASE_URL : null) || import.meta.env?.VITE_SUPABASE_URL;
+const supabaseAnonKey = (isNode ? process.env.VITE_SUPABASE_ANON_KEY : null) || import.meta.env?.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey = isNode ? process.env.SUPABASE_SERVICE_ROLE_KEY : undefined;
 
 if (!supabaseUrl) {
   throw new Error('Missing VITE_SUPABASE_URL environment variable');
@@ -14,8 +16,10 @@ export const supabase = createClient(
   supabaseAnonKey ?? '',
   {
     auth: {
-      autoRefreshToken: false,
-      persistSession: false,
+      // Browser sessions should survive a refresh. Node never has localStorage,
+      // so Supabase safely keeps this client stateless on the API side.
+      autoRefreshToken: !isNode,
+      persistSession: !isNode,
     },
   }
 );

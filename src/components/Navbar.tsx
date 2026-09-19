@@ -1,197 +1,57 @@
-import React from 'react';
-import { UserRole, NotificationItem } from '../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown, CircleHelp, FilePenLine, LogOut, MessageSquarePlus, Settings, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import {
-  Sparkles,
-  Bell,
-  GraduationCap,
-  Briefcase,
-  Building2,
-  ShieldCheck,
-  CheckCircle2,
-  ChevronRight,
-  ExternalLink,
-  RotateCcw,
-  LogOut
-} from 'lucide-react';
 
 interface NavbarProps {
-  notifications: NotificationItem[];
-  onOpenNotifications: () => void;
-  onResetData?: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
-  notifications,
-  onOpenNotifications,
-  onResetData,
-  activeTab,
-  setActiveTab
-}) => {
-  const { currentUser, signInAsDevUser, signOut } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-  const unreadCount = notifications.filter(n => !n.read).length;
+/** A deliberately quiet signed-in header. Navigation belongs to the workspace,
+ * while account actions stay under the student's profile. */
+export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
+  const { currentUser, signOut } = useAuth();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const roles: { role: UserRole; email: string; label: string; icon: React.ReactNode; desc: string }[] = [
-    { role: 'student', email: 'arjun.sharma@apex.edu.in', label: 'Student', icon: <GraduationCap className="w-4 h-4" />, desc: 'Arjun Sharma (CSE)' },
-    { role: 'industry', email: 'recruiter@novatech.com', label: 'Industry', icon: <Briefcase className="w-4 h-4" />, desc: 'Novatech Systems' },
-    { role: 'academician', email: 'ramesh.kumar@apex.edu.in', label: 'Faculty', icon: <Building2 className="w-4 h-4" />, desc: 'Dr. Ramesh Kumar' },
-    { role: 'admin', email: 'admin@apex.edu.in', label: 'Institution', icon: <ShieldCheck className="w-4 h-4" />, desc: 'Apex Admin' },
-  ];
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, []);
+
+  const name = currentUser?.profile?.name || currentUser?.email?.split('@')[0] || 'Student';
+  const avatar = currentUser?.profile?.avatarUrl;
+  const initials = name.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
+  const isStudent = currentUser?.role === 'STUDENT';
+  const navigate = (tab: string) => { setActiveTab(tab); setOpen(false); };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-      {/* Top Brand & Global Switcher Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
-          
-          {/* Hamburger (Mobile) */}
-          <button 
-            className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            <div className="space-y-1">
-              <div className="w-4 h-0.5 bg-current"></div>
-              <div className="w-4 h-0.5 bg-current"></div>
-              <div className="w-4 h-0.5 bg-current"></div>
-            </div>
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#071326]/85 backdrop-blur-2xl">
+      <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
+        <button type="button" onClick={() => isStudent ? navigate('overview') : window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-3 text-left" aria-label="Go to dashboard">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-white shadow-[0_8px_24px_rgba(59,130,246,.35)]"><Sparkles className="h-5 w-5" /></span>
+          <span><span className="block font-display text-lg font-extrabold tracking-tight text-white">SkillBridge <span className="text-cyan-300">AI</span></span><span className="hidden text-[10px] font-medium tracking-wide text-slate-400 sm:block">CAREER INTELLIGENCE</span></span>
+        </button>
+
+        {currentUser && <div className="relative" ref={menuRef}>
+          <button type="button" onClick={() => setOpen(!open)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[.05] py-1.5 pl-1.5 pr-2.5 text-left transition hover:border-cyan-300/30 hover:bg-white/[.09]" aria-haspopup="menu" aria-expanded={open}>
+            {avatar ? <img src={avatar} alt="" className="h-8 w-8 rounded-lg object-cover" /> : <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 text-[11px] font-bold text-white">{initials}</span>}
+            <span className="hidden min-w-0 sm:block"><span className="block max-w-32 truncate text-xs font-bold text-white">{name}</span><span className="block text-[10px] text-slate-400">{isStudent ? 'Student' : currentUser.role.replace('_', ' ')}</span></span>
+            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>
 
-          {/* Brand */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
-            if (currentUser?.role === 'STUDENT') setActiveTab('overview');
-            else window.scrollTo(0, 0);
-          }}>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-sky-600 flex items-center justify-center text-white shadow-md shadow-indigo-200 shrink-0">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-100 animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 font-display">
-                  Skill<span className="text-indigo-600">Bridge</span>
-                </span>
-                <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 hidden sm:inline-block">
-                  v2.4
-                </span>
-              </div>
-              <p className="text-[10px] sm:text-xs text-slate-500 font-medium hidden sm:block">
-                Academia–Industry Career Intelligence Platform
-              </p>
-            </div>
-          </div>
-
-          {/* Persona Switcher Pill Group (Desktop) */}
-          <div className="hidden md:flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 shadow-2xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-2 hidden lg:inline-block">
-              Role Mode:
-            </span>
-            {roles.map(r => {
-              const isActive = currentUser?.role.toLowerCase() === r.role;
-              return (
-                <button
-                  key={r.role}
-                  id={`btn-switch-role-${r.role}`}
-                  onClick={() => signInAsDevUser(r.email)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                    isActive
-                      ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/60 font-bold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                  title={`Switch to ${r.desc}`}
-                >
-                  {r.icon}
-                  <span>{r.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right actions: notifications & user avatar */}
-          <div className="flex items-center gap-1 sm:gap-2.5">
-            {/* Notifications Button */}
-            <button
-              id="btn-open-notifications"
-              onClick={onOpenNotifications}
-              className="relative p-2 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-
-            {/* Reset Seed Data */}
-            {onResetData && (
-              <button
-                id="btn-reset-seed-data"
-                onClick={onResetData}
-                className="hidden md:flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                title="Reset to default seeded demo state"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span className="text-[11px] font-medium">Reset Data</span>
-              </button>
-            )}
-
-            {/* Current Persona Badge */}
-            <div className="flex items-center gap-2 pl-1 sm:pl-2 border-l border-slate-200">
-              {currentUser ? (
-                <>
-                  <img
-                    src={currentUser.profile.avatarUrl}
-                    alt={currentUser.profile.name}
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 ring-indigo-500/20 shadow-xs"
-                  />
-                  <div className="hidden xl:block text-left">
-                    <div className="text-xs font-bold text-slate-900 leading-tight">
-                      {currentUser.profile.name}
-                    </div>
-                    <div className="text-[11px] text-slate-500 capitalize">
-                      {currentUser.role === 'ADMIN' ? 'Institution Admin' : currentUser.role.toLowerCase()}
-                    </div>
-                  </div>
-                  <button onClick={signOut} className="ml-2 text-slate-400 hover:text-red-500" title="Sign Out">
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </>
-              ) : (
-                <div className="text-xs text-slate-500">Not signed in</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Nav Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden py-3 border-t border-slate-100 animate-in slide-in-from-top-2">
-            <div className="px-2 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Switch Role Profile</div>
-            <div className="grid grid-cols-2 gap-2">
-              {roles.map(r => {
-                const isActive = currentUser?.role.toLowerCase() === r.role;
-                return (
-                  <button
-                    key={r.role}
-                    onClick={() => {
-                      signInAsDevUser(r.email);
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`flex items-center gap-2 p-2 rounded-xl text-xs font-semibold ${
-                      isActive ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-slate-50 text-slate-600 border border-slate-200'
-                    }`}
-                  >
-                    {r.icon}
-                    <span>{r.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+          {open && <div role="menu" className="absolute right-0 mt-3 w-60 overflow-hidden rounded-2xl border border-white/10 bg-[#101d35]/95 p-1.5 shadow-2xl shadow-slate-950/50 backdrop-blur-2xl">
+            <div className="border-b border-white/10 px-3 py-2.5"><p className="text-xs font-bold text-white">{name}</p><p className="mt-0.5 truncate text-[11px] text-slate-400">{currentUser.email}</p></div>
+            {isStudent && <><button role="menuitem" onClick={() => navigate('portfolio')} className="menu-item"><FilePenLine />Edit profile</button><button role="menuitem" onClick={() => navigate('portfolio')} className="menu-item"><Settings />Settings & privacy</button></>}
+            <a role="menuitem" href="mailto:support@skillbridge.ai?subject=SkillBridge%20feedback" className="menu-item" onClick={() => setOpen(false)}><MessageSquarePlus />Submit feedback</a>
+            <a role="menuitem" href="mailto:support@skillbridge.ai?subject=SkillBridge%20help" className="menu-item" onClick={() => setOpen(false)}><CircleHelp />Help centre</a>
+            <div className="my-1 border-t border-white/10" />
+            <button role="menuitem" onClick={() => { setOpen(false); signOut(); }} className="menu-item text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"><LogOut />Log out</button>
+          </div>}
+        </div>}
       </div>
     </header>
   );

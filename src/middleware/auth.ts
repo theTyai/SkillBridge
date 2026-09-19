@@ -26,6 +26,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
         id: true,
         supabaseAuthId: true,
         email: true,
+        name: true,
+        avatarUrl: true,
         role: true,
         institutionId: true,
         organizationId: true,

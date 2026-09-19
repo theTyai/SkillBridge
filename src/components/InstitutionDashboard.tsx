@@ -47,7 +47,7 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
   const [verifiedLog, setVerifiedLog] = useState<{ id: string; title: string; status: string; verifier: string; time: string }[]>([]);
 
   // Fetch Institution Students (which includes unverified skills)
-  const { data: studentsRes, isLoading } = useQuery({
+  const { data: studentsRes, isLoading } = useQuery<any[]>({
     queryKey: ['institution', 'students'],
     queryFn: async () => {
       const res = await api.get('/institutions/students');
@@ -58,13 +58,14 @@ export const InstitutionDashboard: React.FC<InstitutionDashboardProps> = ({
   const students = studentsRes || [];
   
   // Flatten students' unverified skills into a "pendingVerifications" list
-  const pendingSkills = React.useMemo(() => {
+  const pendingSkills = React.useMemo<{ id: string; title: string; issuer: string; issueDate: string; credentialId: string; credentialUrl: string; studentName: string; studentId: string }[]>(() => {
     return students.flatMap((s: any) => 
       s.skills.map((sk: any) => ({
         id: sk.id,
         title: sk.canonicalSkill?.name || 'Unknown Skill',
         issuer: 'Self-Reported / Assessment',
-        issuedDate: sk.createdAt || new Date().toISOString(),
+        issueDate: sk.createdAt || new Date().toISOString(),
+        credentialId: sk.id,
         credentialUrl: '#',
         studentName: s.user?.name,
         studentId: s.id

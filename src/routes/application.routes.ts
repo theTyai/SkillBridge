@@ -18,8 +18,8 @@ router.post('/', requireRole(['STUDENT']), submitApplication);
 router.get('/me', requireRole(['STUDENT']), getMyApplications);
 
 // Industry routes
-router.get('/organization', requireRole(['INDUSTRY']), requireTenant(), getOrganizationApplications);
-router.get('/opportunity/:opportunityId', requireRole(['INDUSTRY']), requireTenant(), getOpportunityApplications);
-router.put('/:id/status', requireRole(['INDUSTRY']), requireTenant(), updateApplicationStatus);
+router.get('/organization', requireRole(['RECRUITER']), requireTenant(), getOrganizationApplications);
+router.get('/opportunity/:opportunityId', requireRole(['RECRUITER']), requireTenant(), getOpportunityApplications);
+router.put('/:id/status', requireRole(['RECRUITER']), requireTenant(), updateApplicationStatus);
 
 export default router;

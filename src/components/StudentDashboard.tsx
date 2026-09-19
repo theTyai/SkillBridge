@@ -46,6 +46,8 @@ import { showToast } from './Toast';
 import { generateRoadmapWithGemini, generateInterviewPrep, AIRoadmapResponse, AIInterviewQuestion } from '../utils/aiAPI';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { StudentOnboarding } from './StudentOnboarding';
 
 interface StudentDashboardProps {
   currentUser: User;
@@ -73,9 +75,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   setActiveSubTab
 }) => {
   const queryClient = useQueryClient();
+  const { signOut } = useAuth();
 
   // React Query Fetchers
-  const { data: studentRes, isLoading: isLoadingStudent, error: studentError } = useQuery({
+  const { data: studentRes, isLoading: isLoadingStudent, error: studentError, refetch: refetchStudent } = useQuery({
     queryKey: ['student', 'profile'],
     queryFn: async () => {
       const res = await api.get('/students/me');
@@ -173,12 +176,30 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   }
   
   if (studentError || !student) {
+    const status = (studentError as any)?.response?.status;
+    const expiredSession = status === 401 || status === 403;
+    if (status === 404) return <StudentOnboarding onComplete={() => { refetchStudent(); }} />;
     return (
-      <div className="p-12 text-center text-rose-500">
-        Failed to load student profile. Please complete your profile setup.
+      <div className="mx-auto flex min-h-[65vh] max-w-xl items-center justify-center px-4">
+        <div className="glass-panel w-full rounded-3xl p-8 text-center sm:p-10">
+          <div className={`mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${expiredSession ? 'bg-amber-400/15 text-amber-300' : 'bg-cyan-400/15 text-cyan-300'}`}>
+            {expiredSession ? <Clock className="h-6 w-6" /> : <FileCheck className="h-6 w-6" />}
+          </div>
+          <p className="text-xs font-bold uppercase tracking-[.16em] text-cyan-300">Student workspace</p>
+          <h2 className="mt-3 font-display text-2xl font-bold text-white">{expiredSession ? 'Your session needs to be renewed' : 'Your career profile is not ready yet'}</h2>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-slate-300">{expiredSession ? 'The sign-in link has expired or is no longer valid. Sign in again to securely load your student workspace.' : 'Your account is signed in, but it does not have a completed student profile yet. Start with your institution and academic details to unlock your career workspace.'}</p>
+          <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+            {expiredSession ? <button onClick={() => signOut()} className="rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-950/40">Sign in again</button> : <button onClick={() => refetchStudent()} className="rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-950/40">Retry profile setup</button>}
+            <a href="mailto:support@skillbridge.ai?subject=Student%20profile%20setup" className="rounded-xl border border-white/15 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-white/[.06]">Get help</a>
+          </div>
+        </div>
       </div>
     );
   }
+
+  const profileChecklist = [student.branch, student.degree, student.graduationYear, student.resumeUrl, student.projects?.length, student.targetRoles?.length];
+  const profileCompleteness = Math.round((profileChecklist.filter(Boolean).length / profileChecklist.length) * 100);
+  const institutionVerified = student.skills.some(skill => skill.verified && Boolean((skill as any).verifiedBy));
 
   // Dynamically compute stats for H6 and H7
   const shortlistedCount = applications.filter(a => a.status === 'SHORTLISTED' || a.status === 'INTERVIEW').length;
@@ -329,10 +350,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-7">
       
       {/* Sub-navigation pill menu */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-200/80 scrollbar-none">
+      <aside className="mb-6 lg:mb-0">
+      <div className="flex items-center gap-1.5 overflow-x-auto rounded-2xl border border-white/10 bg-[#0c1930]/80 p-2 shadow-xl shadow-slate-950/20 backdrop-blur-xl lg:sticky lg:top-24 lg:flex-col lg:items-stretch lg:overflow-visible">
+        <p className="hidden px-3 pt-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-500 lg:block">Student workspace</p>
         {tabs.map(tab => {
           const isActive = activeSubTab === tab.id;
           return (
@@ -342,8 +365,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               onClick={() => setActiveSubTab(tab.id)}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 ${
                 isActive
-                  ? 'bg-indigo-600 text-white shadow-xs font-bold'
-                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/60'
+                  ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-950/40 font-bold'
+                  : 'bg-transparent text-slate-300 hover:text-white hover:bg-white/[.08] border border-transparent'
               }`}
             >
               {tab.icon}
@@ -352,29 +375,34 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           );
         })}
       </div>
+      <div className="hidden mt-5 border-t border-white/10 px-3 pt-4 text-[11px] leading-relaxed text-slate-400 lg:block">Build evidence, close your gaps, then apply with a profile your institution has verified.</div>
+      </aside>
+
+      <section className="min-w-0 space-y-6">
 
       {/* TAB 1: OVERVIEW */}
       {activeSubTab === 'overview' && (
         <div className="space-y-6">
           
           {/* Hero Student Banner */}
-          <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg relative overflow-hidden">
+          <div className="p-6 rounded-3xl border border-cyan-300/15 bg-[radial-gradient(circle_at_85%_10%,rgba(37,99,235,.38),transparent_28rem),linear-gradient(120deg,#07152d,#111d50_55%,#091a33)] text-white shadow-2xl shadow-slate-950/30 relative overflow-hidden">
             <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-[11px] font-semibold uppercase tracking-wider">
-                    Student Career Engine
+                  <span className="px-2.5 py-0.5 rounded-full bg-cyan-400/10 text-cyan-200 border border-cyan-300/20 text-[11px] font-semibold uppercase tracking-wider">
+                    Career command centre
                   </span>
                   <span className="text-xs text-slate-300">
                     Apex Institute of Technology (2026 Batch)
                   </span>
                 </div>
                 <h2 className="text-2xl font-extrabold text-white mt-1.5 font-display">
-                  Welcome back, {currentUser.name || 'Student'}
+                  Good afternoon, {currentUser.name || 'Student'}.
                 </h2>
                 <p className="text-xs text-slate-300 max-w-2xl mt-1 leading-relaxed">
-                  Targeting <strong className="text-white">{student.targetRoles.join(', ')}</strong>. You have <strong>{student.skills.filter(s => s.verified).length} verified skills</strong>, an assessed readiness index of <strong>{readinessIndex}%</strong>, and <strong>{applications.length} active opportunities</strong> in your pipeline.
+                  Your career intelligence for today: <strong className="text-white">{student.skills.filter(s => s.verified).length} verified skills</strong>, <strong>{applications.length} active applications</strong>, and a <strong>{readinessIndex}% readiness signal</strong>.
                 </p>
+                <div className="mt-4 max-w-sm"><div className="mb-1.5 flex justify-between text-[11px] text-slate-300"><span>Profile completeness</span><span className="font-bold text-white">{profileCompleteness}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-indigo-400" style={{ width: `${profileCompleteness}%` }} /></div><p className={`mt-2 text-[11px] ${institutionVerified ? 'text-emerald-300' : 'text-amber-200'}`}>{institutionVerified ? 'Institution evidence verified — applications unlocked.' : 'Institution verification is required before applying.'}</p></div>
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
@@ -387,10 +415,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <span>View Career Passport</span>
                 </button>
                 <button
-                  onClick={() => setActiveSubTab('skills-gap')}
-                  className="px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold rounded-xl shadow-md transition-colors flex items-center gap-1.5"
+                  onClick={() => setActiveSubTab('portfolio')}
+                  className="px-4 py-2.5 bg-gradient-to-r from-cyan-400 to-indigo-500 hover:brightness-110 text-white text-xs font-semibold rounded-xl shadow-md transition-colors flex items-center gap-1.5"
                 >
-                  <span>Skill Gap Analysis</span>
+                  <span>Complete profile</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1473,6 +1501,7 @@ Projects: Built DistriCache in Go and Python; Campus Notification Portal in Type
         </div>
       )}
 
+      </section>
     </div>
   );
 };

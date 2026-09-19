@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
 import { 
   getMyProfile, 
+  getInstitutionDirectory,
   createProfile, 
   updateProfile, 
   getPublicPortfolio,
@@ -14,6 +15,7 @@ const router = Router();
 
 // Public route
 router.get('/portfolio/:slug', getPublicPortfolio);
+router.get('/institutions', getInstitutionDirectory);
 
 // Protected routes (Student only)
 router.use(requireAuth);

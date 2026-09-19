@@ -5,7 +5,7 @@ import api from '../lib/api';
 export interface PlatformIdentity {
   id: string;
   email: string;
-  role: 'STUDENT' | 'INDUSTRY' | 'ACADEMICIAN' | 'ADMIN';
+  role: 'STUDENT' | 'RECRUITER' | 'ACADEMICIAN' | 'INSTITUTION_ADMIN' | 'SUPER_ADMIN';
   institutionId?: string;
   organizationId?: string;
   profile: {
@@ -22,6 +22,7 @@ interface AuthContextType {
   error: string | null;
   signInAsDevUser: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
+  fetchMe: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,7 +30,8 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   error: null,
   signInAsDevUser: async () => {},
-  signOut: async () => {}
+  signOut: async () => {},
+  fetchMe: async () => {}
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -44,7 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
     } catch (err) {
       setCurrentUser(null);
-      setError('Failed to fetch user profile');
+      setError('We could not load your workspace. Please sign in again.');
     } finally {
       setLoading(false);
     }
@@ -88,11 +90,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    setLoading(true);
+    try {
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+      setError(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, error, signInAsDevUser, signOut }}>
+    <AuthContext.Provider value={{ currentUser, loading, error, signInAsDevUser, signOut, fetchMe }}>
       {children}
     </AuthContext.Provider>
   );

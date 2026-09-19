@@ -8,7 +8,7 @@ export type OpportunityType = 'internship' | 'job' | 'live_project' | 'apprentic
 
 export type WorkMode = 'remote' | 'hybrid' | 'on-site';
 
-export type ApplicationStatus = 'Applied' | 'Under Review' | 'Shortlisted' | 'Interview' | 'Selected' | 'Rejected' | 'Withdrawn';
+export type ApplicationStatus = 'Applied' | 'Under Review' | 'Shortlisted' | 'Interview' | 'Selected' | 'Rejected' | 'Withdrawn' | 'APPLIED' | 'UNDER_REVIEW' | 'SHORTLISTED' | 'INTERVIEW' | 'SELECTED' | 'REJECTED' | 'WITHDRAWN';
 
 export interface User {
   id: string;
@@ -23,6 +23,12 @@ export interface User {
   headline?: string;
   bio?: string;
   location?: string;
+  profile?: {
+    name?: string;
+    avatarUrl?: string;
+    designation?: string;
+    portfolioSlug?: string;
+  };
 }
 
 export interface CanonicalSkill {

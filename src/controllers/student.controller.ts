@@ -2,6 +2,22 @@ import { Request, Response } from 'express';
 import { db } from '../lib/db.js';
 import { AUDIT } from '../lib/audit.js';
 
+// ── GET /api/v1/students/institutions ──
+// Public, intentionally minimal directory used only during first-run onboarding.
+export const getInstitutionDirectory = async (_req: Request, res: Response) => {
+  try {
+    const institutions = await db.institution.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, city: true },
+      orderBy: { name: 'asc' }
+    });
+    res.json({ success: true, data: institutions });
+  } catch (error) {
+    console.error('[getInstitutionDirectory]', error);
+    res.status(500).json({ error: 'Failed to load institutions' });
+  }
+};
+
 // ── GET /api/v1/students/me ──
 export const getMyProfile = async (req: Request, res: Response) => {
   try {
@@ -254,4 +270,3 @@ export const addProject = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to add project' });
   }
 };
-

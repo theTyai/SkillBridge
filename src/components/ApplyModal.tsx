@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Opportunity, StudentProfile, Application } from '../types';
 import { calculateOpportunityMatch } from '../utils/matchingEngine';
 import {
@@ -27,19 +27,38 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
   onClose,
   onSubmitApplication
 }) => {
-  useEscapeKey(onClose);
+  useEscapeKey(() => { if (opportunity) onClose(); });
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmedAccurate, setConfirmedAccurate] = useState(false);
+  const [coverNote, setCoverNote] = useState('');
+
+  useEffect(() => {
+    if (!opportunity) return;
+    const match = calculateOpportunityMatch(student, opportunity);
+    setCoverNote(`I am enthusiastic to apply for the ${opportunity.title} position at ${opportunity.companyName}. My verified background in ${match.matchedSkills.slice(0, 3).join(', ')} directly aligns with your team's mission.`);
+    setAnswers({});
+    setConfirmedAccurate(false);
+  }, [opportunity?.id]);
 
   if (!opportunity) return null;
 
   const match = calculateOpportunityMatch(student, opportunity);
-  const [coverNote, setCoverNote] = useState(
-    `I am enthusiastic to apply for the ${opportunity.title} position at ${opportunity.companyName}. My verified background in ${match.matchedSkills.slice(0, 3).join(', ')} directly aligns with your team's mission.`
-  );
-  const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const missingProfileItems = [
+    !student.branch && 'branch',
+    !student.degree && 'degree',
+    !student.graduationYear && 'graduation year',
+    !student.bio && 'professional summary',
+    !student.targetRoles?.length && 'target role',
+    !student.resumeUrl && 'resume',
+    !student.projects?.length && 'project evidence'
+  ].filter(Boolean) as string[];
+  const hasInstitutionVerification = student.skills.some(skill => skill.verified && Boolean((skill as any).verifiedBy));
+  const canApply = missingProfileItems.length === 0 && hasInstitutionVerification;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canApply || !confirmedAccurate) return;
     setIsSubmitting(true);
 
     setTimeout(() => {
@@ -110,17 +129,15 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs max-h-[75vh] overflow-y-auto">
           
-          {/* Match & Verification Banner */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+          {/* Application readiness */}
+          <div className={`p-3.5 rounded-xl border ${canApply ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              {canApply ? <ShieldCheck className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-amber-600" />}
               <span className="text-slate-700 font-medium">
-                Verified Candidate Profile Linked ({student.institutionName})
+                {canApply ? `Institution-verified profile linked (${student.institutionName})` : 'Application review required'}
               </span>
             </div>
-            <span className="font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">
-              {match.overallScore}% Compatibility
-            </span>
+            <div className="mt-2 flex items-center justify-between gap-3"><p className={`text-[11px] ${canApply ? 'text-emerald-700' : 'text-amber-800'}`}>{canApply ? 'Your complete profile has institution-verified evidence.' : missingProfileItems.length ? `Complete: ${missingProfileItems.join(', ')}.` : 'Your institution needs to verify at least one skill.'}</p><span className="shrink-0 font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">{match.overallScore}% Match</span></div>
           </div>
 
           {/* Resume Selection */}
@@ -170,6 +187,11 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
             </div>
           )}
 
+          <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-600">
+            <input type="checkbox" checked={confirmedAccurate} onChange={event => setConfirmedAccurate(event.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-indigo-600" />
+            <span>I confirm that the information in this application is accurate and may be shared with this employer.</span>
+          </label>
+
           {/* Submit Actions */}
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
             <button
@@ -181,11 +203,11 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !canApply || !confirmedAccurate}
               className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>{isSubmitting ? 'Transmitting...' : 'Submit Application'}</span>
+              <span>{isSubmitting ? 'Transmitting...' : canApply ? 'Submit Application' : 'Profile verification required'}</span>
             </button>
           </div>
 

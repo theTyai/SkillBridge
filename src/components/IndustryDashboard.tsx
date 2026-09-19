@@ -50,7 +50,7 @@ export const IndustryDashboard: React.FC<IndustryDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'pipeline' | 'postings' | 'collaborations' | 'analytics'>('pipeline');
 
   // React Query Fetchers
-  const { data: opportunitiesRes, isLoading: isLoadingOpps } = useQuery({
+  const { data: opportunitiesRes, isLoading: isLoadingOpps } = useQuery<Opportunity[]>({
     queryKey: ['industry', 'opportunities', currentUser.organizationId],
     queryFn: async () => {
       // Pass status=all to see drafts if they exist, or just published
@@ -60,12 +60,12 @@ export const IndustryDashboard: React.FC<IndustryDashboardProps> = ({
     enabled: !!currentUser.organizationId
   });
 
-  const { data: applicationsRes, isLoading: isLoadingApps } = useQuery({
+  const { data: applicationsRes, isLoading: isLoadingApps } = useQuery<Application[]>({
     queryKey: ['industry', 'applications'],
     queryFn: async () => {
       const res = await api.get('/applications/organization');
       const data = res.data.data;
-      return data.map((a: any) => ({
+      return data.map((a: any): Application => ({
         ...a,
         studentName: a.student?.user?.name,
         studentEmail: a.student?.user?.email,

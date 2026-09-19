@@ -15,7 +15,7 @@ router.get('/', getOpportunities);
 router.get('/:id', getOpportunityById);
 
 // Protected routes (Industry)
-router.post('/', requireAuth, requireRole(['INDUSTRY']), requireTenant(), createOpportunity);
-router.put('/:id', requireAuth, requireRole(['INDUSTRY']), requireTenant(), updateOpportunity);
+router.post('/', requireAuth, requireRole(['RECRUITER']), requireTenant(), createOpportunity);
+router.put('/:id', requireAuth, requireRole(['RECRUITER']), requireTenant(), updateOpportunity);
 
 export default router;

@@ -3,6 +3,19 @@ import { supabase } from '../lib/supabase.js';
 import { db } from '../lib/db.js';
 import { UserRole } from '@prisma/client';
 
+const normalizeRole = (value: unknown): UserRole => {
+  const aliases: Record<string, UserRole> = {
+    STUDENT: 'STUDENT',
+    RECRUITER: 'RECRUITER',
+    INDUSTRY: 'RECRUITER',
+    ACADEMICIAN: 'ACADEMICIAN',
+    INSTITUTION_ADMIN: 'INSTITUTION_ADMIN',
+    ADMIN: 'INSTITUTION_ADMIN',
+    SUPER_ADMIN: 'SUPER_ADMIN'
+  };
+  return aliases[String(value ?? 'STUDENT').toUpperCase()] ?? 'STUDENT';
+};
+
 export const syncUser = async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
@@ -24,7 +37,7 @@ export const syncUser = async (req: Request, res: Response) => {
     }
 
     // Determine role (default to STUDENT if not provided)
-    const role: UserRole = user_metadata?.role || 'STUDENT';
+    const role = normalizeRole(user_metadata?.role);
     const name: string = user_metadata?.full_name || email.split('@')[0];
     const avatarUrl: string | undefined = user_metadata?.avatar_url;
 
@@ -104,4 +117,3 @@ export const getMe = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal server error fetching me' });
   }
 };
-

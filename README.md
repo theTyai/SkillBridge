@@ -1,306 +1,679 @@
-# SkillBridge: AI-Powered Career Intelligence & Academia–Industry Collaboration Platform
+# SkillBridge AI — Academia-Industry Collaboration Portal
 
-> **Bridging the Great Divide Between Academic Curricula, Student Competencies, and Modern Industry Demands.**
-
-SkillBridge is an enterprise-grade, multi-stakeholder Career Intelligence and Academia–Industry Collaboration Platform designed to transform campus placements, skill verification, curriculum alignment, and joint university–industry research into a unified, transparent, and data-driven ecosystem.
-
----
-
-## 📌 Table of Contents
-1. [Executive Summary & Problem Statement](#-executive-summary--problem-statement)
-2. [Platform Architecture & Multi-Stakeholder Ecosystem](#-platform-architecture--multi-stakeholder-ecosystem)
-3. [Key Personas & User Journeys](#-key-personas--user-journeys)
-4. [Explainable Matching Engine (Mathematical Formulation)](#-explainable-matching-engine-mathematical-formulation)
-5. [Living Career Passport & Cryptographic/Verifiable Credentialing](#-living-career-passport--cryptographicverifiable-credentialing)
-6. [Interactive Capability Assessments](#-interactive-capability-assessments)
-7. [Curriculum Gap & Macro Institutional Analytics](#-curriculum-gap--macro-institutional-analytics)
-8. [Generative AI Capabilities & Endpoints](#-generative-ai-capabilities--endpoints)
-9. [Technology Stack](#-technology-stack)
-10. [API Reference & Data Contracts](#-api-reference--data-contracts)
-11. [Setup, Installation & Running the Platform](#-setup-installation--running-the-platform)
-12. [Demo Scenarios & Walkthrough](#-demo-scenarios--walkthrough)
+> **A Smart India Hackathon Problem Statement Implementation**
+> Portal for Academia-Industry Collaboration for Skill Mapping, Internships and Placement
 
 ---
 
-## 🎯 Executive Summary & Problem Statement
+## Table of Contents
 
-### The Tripartite Problem in Higher Technical Education:
-1. **Students Face Unexplainable Rejections & Opaque Hiring**: Traditional campus placement portals rely on keyword matching without context. Students receive binary rejections without actionable feedback on why they were passed over or which specific capabilities were lacking.
-2. **Industry Recruiters Sift Through Unverified Resumes**: Recruiters receive thousands of self-reported resumes containing inflated buzzwords, forcing costly multiple-round screening to evaluate foundational technical competencies.
-3. **Academic Institutions Suffer From Curricular Lag**: Universities update syllabi every 3 to 5 years, lagging behind high-growth technical domains (Cloud-Native computing, Generative AI, Distributed Systems). Placement cells lack real-time visibility into recruiter skill demand versus student supply.
-4. **Faculty Isolation**: Academicians remain disconnected from modern industrial R&D, lacking structured pathways for corporate sabbaticals, consultancy retainers, and industry-sponsored lab collaborations.
-
-### The SkillBridge Solution:
-SkillBridge provides an end-to-end platform where:
-- Every student's skill is evaluated through **verified evidence** (standardized assessments, GitHub repositories, peer-reviewed projects, and certified lab work).
-- Campus opportunities are paired with students through a **100% transparent, explainable matching engine** with radar breakdowns and gap diagnostics.
-- Academic institutions gain **macro real-time demand vs. supply analytics** to overhaul curricula and conduct placement audits.
-- Faculty engage in **corporate fellowships, sponsored research grants, and student co-mentorship**.
+1. [Problem Statement](#1-problem-statement)
+2. [Solution Overview](#2-solution-overview)
+3. [Tech Stack](#3-tech-stack)
+4. [System Architecture](#4-system-architecture)
+5. [User Roles & Personas](#5-user-roles--personas)
+6. [Feature Modules](#6-feature-modules)
+7. [Database Design](#7-database-design)
+8. [API Reference](#8-api-reference)
+9. [AI Matching Engine](#9-ai-matching-engine)
+10. [Frontend Components](#10-frontend-components)
+11. [Authentication Flow](#11-authentication-flow)
+12. [Project Structure](#12-project-structure)
+13. [Setup & Running Locally](#13-setup--running-locally)
+14. [Seed Data](#14-seed-data)
+15. [Testing](#15-testing)
 
 ---
 
-## 🏛️ Platform Architecture & Multi-Stakeholder Ecosystem
+## 1. Problem Statement
+
+A significant gap exists between the skills acquired in academic institutions and the competencies expected by industries. Students struggle to identify career-relevant skills; industries struggle to find right-fit candidates; academicians have limited visibility into real-world industry exposure opportunities.
+
+**SkillBridge AI** is the proposed unified platform that connects all four stakeholders — **Students**, **Industries (Recruiters)**, **Academicians (Faculty)**, and **Institutions (Admins)** — enabling seamless collaboration, verified skill development, and placement intelligence.
+
+---
+
+## 2. Solution Overview
+
+SkillBridge AI is a full-stack, AI-native, role-based web platform that provides:
+
+| Capability | Description |
+|---|---|
+| **Skill Assessment** | Students take objective in-app tests to build verified skill profiles |
+| **AI Skill Matching** | Explainable AI (Gemini) matches students to job/internship opportunities with transparent scoring |
+| **Digital Skill Passport** | A shareable, verifiable, living portfolio replacing PDF resumes |
+| **Opportunity Portal** | Centralised internship, job, live-project, and mentorship board |
+| **Industry Learning Programs** | Companies publish certification courses, bootcamps, and workshops |
+| **Faculty Portal** | Dedicated panel for Faculty Internships, FDPs, Research Collaboration |
+| **Institution Analytics** | Macro-level dashboards tracking placement rates, skill gaps, department benchmarks |
+| **Credential Verification** | Institutions and recruiters verify student certifications and skills with audit logs |
+
+---
+
+## 3. Tech Stack
+
+### Frontend
+| Category | Technology |
+|---|---|
+| Framework | React 19 + TypeScript |
+| Build Tool | Vite 8 (served via Express middleware) |
+| Styling | Tailwind CSS v4 |
+| Icons | lucide-react |
+| Animations | motion (Framer Motion) |
+| Data Fetching | TanStack React Query v5 + Axios |
+| State Management | React Context API (AuthContext) |
+
+### Backend
+| Category | Technology |
+|---|---|
+| Runtime | Node.js v24 |
+| Framework | Express.js |
+| Language | TypeScript |
+| ORM | Prisma v5 |
+| Database | PostgreSQL (Supabase Cloud) |
+| Auth | Supabase Auth (JWT-based) |
+| AI | Google Gen AI SDK — Gemini Flash |
+| Email | Resend API |
+| File Storage | Supabase Storage |
+| Security | helmet, express-rate-limit, xss-clean, CORS |
+
+### DevOps & Tooling
+| Category | Technology |
+|---|---|
+| Testing | Vitest + supertest + React Testing Library |
+| Containerisation | Docker (Dockerfile included) |
+| Package Manager | npm |
+| Build Bundler | esbuild (server), Vite rolldown (client) |
+
+---
+
+## 4. System Architecture
 
 ```
-                                  ┌───────────────────────────────┐
-                                  │      SkillBridge Core UI      │
-                                  │  (React 18 + Tailwind CSS)    │
-                                  └──────────────┬────────────────┘
-                                                 │
-            ┌───────────────────┬────────────────┴───────────────────┬───────────────────┐
-            │                   │                                    │                   │
-     ▼             ▼                                    ▼             ▼
-┌───────────────┐  ┌──────────────────┐               ┌──────────────────┐  ┌─────────────────┐
-│ Student Hub   │  │ Industry Hub     │               │ Faculty Hub      │  │ Institution Hub │
-│ • Passport    │  │ • Job Posting    │               │ • FDP Immersion  │  │ • Macro KPIs    │
-│ • Assessments │  │ • ATS Pipeline   │               │ • Consultancy    │  │ • Skill Audits  │
-│ • AI Roadmap  │  │ • Candidate Pool │               │ • Student Labs   │  │ • Gap Analytics │
-└───────┬───────┘  └────────┬─────────┘               └────────┬─────────┘  └────────┬────────┘
-        │                   │                                  │                     │
-        └───────────────────┼──────────────────────────────────┼─────────────────────┘
-                            │
-                            ▼
-              ┌───────────────────────────┐
-              │ Explainable Match Engine  │
-              │ • 6-Factor Compatibility  │
-              │ • Hard Academic Filtering │
-              └─────────────┬─────────────┘
-                            │
-                            ▼
-              ┌───────────────────────────┐
-              │   Express.js API Layer    │
-              │  (Port 3000 + ESM Bundle) │
-              └─────────────┬─────────────┘
-                            │
-                            ▼
-              ┌───────────────────────────┐
-              │ Gemini 3.8 Flash AI Core  │
-              │ • Resume Extraction       │
-              │ • 30/60/90-Day Roadmaps   │
-              │ • Interview Synthesis     │
-              └───────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│                    Browser (React SPA)                 │
+│  Vite HMR ◄──── served as Express static middleware   │
+└──────────────────────┬─────────────────────────────────┘
+                       │  HTTP / REST  /api/v1
+┌──────────────────────▼─────────────────────────────────┐
+│              Express.js Server (server.ts)             │
+│                                                        │
+│  ┌────────────┐  ┌──────────┐  ┌───────────────────┐  │
+│  │  Auth MW   │  │  RBAC MW │  │  Rate Limit / XSS │  │
+│  └─────┬──────┘  └────┬─────┘  └───────────────────┘  │
+│        │              │                                 │
+│  ┌─────▼──────────────▼──────────────────────────────┐ │
+│  │                   Route Handlers                  │ │
+│  │  /auth  /students  /opportunities  /applications  │ │
+│  │  /institutions  /ai  /storage  /notifications     │ │
+│  └──────────────────────┬────────────────────────────┘ │
+└─────────────────────────┼──────────────────────────────┘
+                          │
+         ┌────────────────┼─────────────────┐
+         │                │                 │
+┌────────▼───────┐  ┌─────▼──────┐  ┌──────▼───────┐
+│  Prisma ORM    │  │  Supabase  │  │  Google      │
+│  PostgreSQL DB │  │  Auth +    │  │  Gemini API  │
+│  (Supabase)    │  │  Storage   │  │              │
+└────────────────┘  └────────────┘  └──────────────┘
 ```
 
----
-
-## 👥 Key Personas & User Journeys
-
-### 1. Student Persona (*Arjun Sharma — Final Year CSE, Apex Institute of Technology*)
-- **Career Intelligence Dashboard**: Track profile completeness, verified skill badges, target roles, and pending applications.
-- **Living Career Passport**: Public/private verifiable portfolio displaying confirmed competencies, verified certification seals, academic metrics, and shareable QR code for recruiter access.
-- **AI-Powered Resume Parser**: Upload or paste resume text to automatically parse technical skills, degree information, and project summaries into standardized canonical capabilities.
-- **Explainable Job Matching**: Real-time compatibility scores for internships and full-time jobs with detailed skill breakdowns (Matched vs Missing skills, proficiency delta, and eligibility compliance).
-- **Interactive Capability Assessment**: Take timed technical assessments (e.g., *Backend Engineering & API Design*, *Cloud Native & DevOps*) with instant scoring, skill level updates, and automated digital certificate generation upon passing ($\ge 70\%$).
-- **AI 30/60/90-Day Career Roadmap**: Generate personalized 3-month action plans targeting aspirational roles (e.g., *Cloud Backend Engineer*).
-- **Interactive Technical Interview Coach**: Practice role-specific architectural and coding questions with hints powered by Gemini.
-- **Application Stage Tracker**: Real-time status pipeline (`Applied` → `Under Review` → `Shortlisted` → `Interview` → `Selected`) with event timelines.
-
-### 2. Industry Recruiter Persona (*Sarah Jenkins — Lead Technical Recruiter, Novatech Systems*)
-- **Campus Opportunity Creator**: Create job, internship, apprenticeship, and live capstone postings with required vs. preferred skills, minimum proficiency bars, work modes, and academic eligibility criteria.
-- **Candidate Review & Talent Pool**: Search, filter, and inspect applicants sorted by compatibility scores.
-- **ATS Stage Management**: Transition candidates across hiring stages with internal audit notes and instant student notifications.
-- **Explainability Inspector**: Deep-dive into candidate profiles to review why a candidate scored 92% vs 64%, inspecting missing skills and verified certifications.
-- **Academic Joint Collaborations**: Manage student capstone projects and track milestones.
-
-### 3. Academician / Faculty Persona (*Dr. Ramesh Kumar — Head of Distributed Systems Lab*)
-- **Industry Immersion Programs**: Discover and apply for industrial sabbaticals, AICTE-recognized Faculty Development Programs (FDPs), and corporate internships.
-- **Industry Consultancy Retainers**: Review corporate technical problems and submit consultancy proposals.
-- **Sponsored Research Grants**: Explore enterprise R&D grants with milestone tracking.
-- **Capstone Project Co-Mentorship**: Supervise student deliverables alongside industry co-mentors.
-
-### 4. Institutional Admin / Placement Cell Persona (*Dr. Meenakshi Sundaram — Apex Placement Cell*)
-- **Macro Cohort Readiness Analytics**: Track total enrollment (4,820 students), verified capability rates, placed percentages, and active company engagements.
-- **Curriculum Gap Diagnostic (Demand vs. Supply)**: Identify fast-growing industry demands (e.g., Docker, Kubernetes, Generative AI) lagging behind campus curriculum supply.
-- **Verifiable Credential Audit Desk**: Review student-uploaded certifications, verify credential IDs, and approve or reject submissions with tamper-proof timestamps.
-- **Canonical Skill Taxonomy Manager**: Create standardized skills, categories, and industry aliases.
-- **Placement Export**: Download full institutional readiness reports as CSV.
+**Key architectural decision:** Vite runs in Express middleware mode during development, meaning a single `npm run dev` boots the full stack (API + HMR frontend) on **port 3000**.
 
 ---
 
-## 🧮 Explainable Matching Engine (Mathematical Formulation)
+## 5. User Roles & Personas
 
-The SkillBridge Matching Engine eliminates black-box hiring by employing a deterministic, multi-factor scoring model coupled with hard academic eligibility checks.
+The platform implements strict **Role-Based Access Control (RBAC)**. Each role gets a completely different application shell and set of API permissions.
 
-### Mathematical Formula:
-$$\text{Overall Compatibility Score} = 0.55 \cdot S_{\text{required}} + 0.15 \cdot S_{\text{proficiency}} + 0.10 \cdot S_{\text{preferred}} + 0.10 \cdot S_{\text{role}} + 0.05 \cdot S_{\text{work\_mode}} + 0.05 \cdot S_{\text{completeness}}$$
+### 5.1 Student (`STUDENT`)
+- Registers via email + password on the Landing Page
+- Fills an onboarding profile (branch, degree, graduation year, CGPA, bio, target roles)
+- Takes skill assessments → builds a verified skill profile
+- Browses and applies for opportunities
+- Tracks application statuses in real-time
+- Maintains a public Digital Skill Passport (shareable via unique URL + QR code)
+- Enrolls in industry Learning Programs
 
-### Component Breakdowns:
-1. **Required Skills Coverage ($S_{\text{required}}$) — 55% Weight**:
-   $$S_{\text{required}} = \left( \frac{\sum_{i=1}^{N} \mathbb{I}(\text{skill}_i \in \text{StudentSkills})}{N} \right) \times 100$$
-   Where $N$ is the total count of mandatory required skills.
+**Key data:** `StudentProfile`, `StudentSkill`, `Application`, `AssessmentAttempt`, `StudentCertification`, `StudentProject`
 
-2. **Proficiency Alignment ($S_{\text{proficiency}}$) — 15% Weight**:
-   For each matched skill $i$:
-   $$\text{Fit}_i = \begin{cases} 1.0 & \text{if } P_{\text{student}} \ge P_{\text{required}} \\ \frac{P_{\text{student}}}{P_{\text{required}}} & \text{if } P_{\text{student}} < P_{\text{required}} \end{cases}$$
-   $$S_{\text{proficiency}} = \left( \frac{\sum_{i=1}^{N} \text{Fit}_i}{N} \right) \times 100$$
+### 5.2 Industry / Recruiter (`RECRUITER`)
+- Represents an `IndustryOrganization` (e.g., Novatech Systems)
+- Posts job openings, internships, live projects, and apprenticeships as `Opportunity` records
+- Publishes Learning Programs (workshops, bootcamps, mentorship)
+- Reviews incoming applications, views AI match scores
+- Advances candidate pipeline (Applied → Shortlisted → Interview → Selected/Rejected)
+- Manages their tenant's application pipeline via `organizationId` scoping
 
-3. **Preferred Skills Bonus ($S_{\text{preferred}}$) — 10% Weight**:
-   $$S_{\text{preferred}} = \left( \frac{\text{Matched Preferred Skills}}{\text{Total Preferred Skills}} \right) \times 100$$
+**Key data:** `Opportunity`, `Application`, `LearningProgram`, `IndustryOrganization`
 
-4. **Role Interest Alignment ($S_{\text{role}}$) — 10% Weight**:
-   Evaluates student career aspiration keywords against the job's title and category (100% if exact match; 60% baseline).
+### 5.3 Academician / Faculty (`ACADEMICIAN`)
+- Explores Faculty-specific opportunities: FDPs, Industrial Training, Consultancy, Research Collaborations
+- Participates in and manages `CollaborationProject` records with industry partners
+- Can verify student skills assigned to them by the institution
+- Views industry-academia partnerships and tracks milestones
 
-5. **Work Mode / Flexibility Fit ($S_{\text{work\_mode}}$) — 5% Weight**:
-   Remote = 100%, Hybrid = 90%, On-site = 75%.
+**Key data:** `FacultyProfile`, `FacultyOpportunity`, `CollaborationProject`
 
-6. **Profile Completeness & Verification ($S_{\text{completeness}}$) — 5% Weight**:
-   Calculated dynamically based on resume link (+15%), GitHub integration (+15%), $\ge 2$ verified projects (+10%), and $\ge 1$ verified credential (+10%).
+### 5.4 Institution Admin (`INSTITUTION_ADMIN`)
+- Represents the academic institution (e.g., Apex Institute of Technology)
+- Views macro analytics: placement rates, skill gap matrices, departmental breakdowns
+- Operates the **Skill Verification Audit Desk** — approves/rejects student skill claims
+- Tracks all enrolled students with their verification statuses
+- Monitors corporate partners and active campus drives
 
-### Hard Academic Eligibility Gating:
-Before scoring, candidate profiles are checked against hard requirements:
-- $\text{Student CGPA} \ge \text{Minimum Opportunity CGPA}$
-- $\text{Student Engineering Branch} \in \text{Allowed Branches}$
-- $\text{Student Graduation Year} \in \text{Eligible Batches}$
+**Key data:** `Institution`, `Department`, `AuditLog`, `StudentProfile` (institution-scoped)
 
-*Transparency Rule*: If a candidate fails any hard academic constraint, their overall score is capped at **48%**, accompanied by clear explanatory diagnostic notes in the UI.
-
----
-
-## 🪪 Living Career Passport & Cryptographic/Verifiable Credentialing
-
-SkillBridge replaces outdated PDF resumes with a dynamic, living web portfolio:
-- **Unique Credential Identifiers**: E.g., `SB-VERIFIED-948201` issued by the *Apex Academic & Skill Council*.
-- **Direct Skill Verification Links**: Links verified skills directly to assessment scores and GitHub project repositories.
-- **Shareable QR Verification**: Dynamic QR code rendering allows campus recruiters at job fairs to scan and view the verified candidate passport instantly.
-- **Granular Privacy Controls**: One-click toggle between Publicly Discoverable and Private Access.
+### Dev Persona Switcher (Development Only)
+A developer-only Navbar tool lets engineers instantly switch between the four roles by triggering a real Supabase `signInWithPassword` call using pre-seeded test accounts (`password123`). It does **not** bypass JWT authentication — it uses the real auth flow.
 
 ---
 
-## 🧪 Interactive Capability Assessments
+## 6. Feature Modules
 
-To prevent resume puffery, SkillBridge includes standardized in-app technical assessments:
-- **Timed Question Engine**: Multiple-choice domain challenges covering architecture, edge cases, and best practices.
-- **Adaptive Scoring**: Questions test theoretical grasp and real-world trade-offs (e.g., Redis caching strategies, connection pooling, Docker layer optimization).
-- **Automated Capability Endorsement**: Scoring $\ge 70\%$ automatically updates the student's proficiency level in that skill and appends a verified credential to their Career Passport.
+### 6.1 Skill Assessment System
+- Students take timed multiple-choice assessments (5–10 questions each)
+- Each question maps to a `CanonicalSkill` from the taxonomy
+- Scoring ≥ 70% → skill is automatically marked `ASSESSED` (verified via platform)
+- `AssessmentAttempt` records the breakdown per skill
+- Results propagate to the student's `StudentSkill` table and update their `proficiency` score
+
+### 6.2 AI Match Scoring (Explainable AI)
+A deterministic weighted formula calculates compatibility between a student and an opportunity:
+
+```
+Match Score = 0.55 × Required Skill Coverage
+            + 0.15 × Proficiency Fit
+            + 0.10 × Preferred Skill Coverage
+            + 0.10 × Role Interest Alignment
+            + 0.05 × Work Mode Fit
+            + 0.05 × Profile Completeness
+```
+
+**Hard Eligibility Gates:**
+- If student CGPA < minimum required → score capped at 48%
+- If student branch not in allowed branches → score capped at 48%
+- If graduation year not in eligible batches → score capped at 48%
+
+The Gemini AI API is then called to generate a **plain-English explanation** of why a candidate is a good or poor fit, shown in the `MatchExplanationModal`.
+
+### 6.3 Digital Skill Passport
+- Every student gets a unique `portfolioSlug` (e.g., `arjun-sharma-apex-cse`)
+- Publicly accessible at `/students/portfolio/:slug`
+- Displays verified skills, projects, certifications, experience, and assessments
+- Includes a QR code for on-site scanning at campus placement fairs
+- Privacy toggle (Public / Private) controlled by `ConsentSettings`
+
+### 6.4 Opportunity & Application Lifecycle
+
+```
+Industry posts Opportunity (DRAFT)
+         ↓
+     PUBLISHED (visible to students)
+         ↓
+  Student submits Application (APPLIED)
+         ↓
+Recruiter reviews → UNDER_REVIEW → SHORTLISTED
+         ↓
+     INTERVIEW
+         ↓
+  SELECTED  or  REJECTED
+```
+
+Every status transition creates an `ApplicationEvent` record for full auditability.
+
+### 6.5 Industry-Academia Collaboration
+- `CollaborationProject` supports: Live Projects, Industry Research, Innovation Hackathons, Guest Lecture Series
+- Each project has `ProjectMilestone` records with due dates and completion tracking
+- Faculty can propose and join collaborative research initiatives
+
+### 6.6 Institution Analytics Dashboard
+Real-time computed metrics:
+- Total enrolled students / verified students ratio
+- Placement rate (%) and number of placement offers
+- Active internships and average stipend
+- Corporate partner count and active campus drives
+- **Skill Gap Matrix**: Top skills demanded by industry vs. student coverage %
+- Department-wise placement benchmarks (CSE, ECE, AI&DS, etc.)
+- Skill demand growth trends
+
+### 6.7 Credential Verification Workflow
+```
+Student claims/uploads Certification → PENDING
+         ↓
+Institution Admin reviews at Audit Desk
+         ↓
+   VERIFIED  or  REJECTED (with reason)
+```
+All verification actions are recorded in `AuditLog` with actor ID, timestamp, and IP address.
 
 ---
 
-## 📊 Curriculum Gap & Macro Institutional Analytics
+## 7. Database Design
 
-The Institutional Admin Dashboard provides actionable intelligence to academic leadership:
-- **Demanded vs. Taught Matrix**: Compares employer-requested capabilities against current engineering syllabi.
-- **Departmental Employability Benchmarks**: Tracks placement statistics across CSE, ECE, AI&DS, and Mechanical Engineering.
-- **Audit Logging**: Tracks verification requests, reviewer approvals, and historical placement conversion rates.
-- **CSV Data Export**: Instant one-click export for National Institutional Ranking Framework (NIRF) and accreditation audits.
+The Prisma schema uses **PostgreSQL** hosted on Supabase. All models use CUID primary keys.
+
+### Core Enums
+
+| Enum | Values |
+|---|---|
+| `UserRole` | `SUPER_ADMIN`, `INSTITUTION_ADMIN`, `ACADEMICIAN`, `STUDENT`, `RECRUITER` |
+| `VerificationStatus` | `PENDING`, `VERIFIED`, `REJECTED` |
+| `SkillSource` | `ASSESSED`, `VERIFIED`, `SELF_REPORTED`, `IMPORTED`, `AI_PARSED` |
+| `OpportunityType` | `INTERNSHIP`, `JOB`, `LIVE_PROJECT`, `APPRENTICESHIP`, `MENTORSHIP` |
+| `OpportunityStatus` | `DRAFT`, `PENDING_APPROVAL`, `PUBLISHED`, `CLOSED`, `ARCHIVED` |
+| `ApplicationStatus` | `APPLIED`, `UNDER_REVIEW`, `SHORTLISTED`, `INTERVIEW`, `SELECTED`, `REJECTED`, `WITHDRAWN` |
+| `WorkMode` | `REMOTE`, `HYBRID`, `ON_SITE` |
+| `CollaborationStatus` | `PLANNING`, `ACTIVE`, `UNDER_REVIEW`, `COMPLETED` |
+
+### Entity Relationship Summary
+
+```
+Institution ──< Department
+Institution ──< User
+Institution ──< StudentProfile
+Institution ──< FacultyProfile
+Institution ──< Assessment
+Institution ──< CollaborationProject
+
+IndustryOrganization ──< User
+IndustryOrganization ──< Opportunity
+IndustryOrganization ──< CollaborationProject
+
+User ──1── StudentProfile ──< StudentSkill >── CanonicalSkill
+                           ──< StudentProject
+                           ──< StudentCertification
+                           ──< StudentExperience
+                           ──< Application >── Opportunity
+                           ──< AssessmentAttempt
+                           ──< LearningEnrollment
+
+User ──1── FacultyProfile
+
+Opportunity ──< OpportunitySkill >── CanonicalSkill
+Opportunity ──< Application ──< ApplicationEvent
+
+Assessment ──< AssessmentQuestion >── CanonicalSkill
+Assessment ──< AssessmentAttempt ──< AssessmentAnswer
+
+CollaborationProject ──< ProjectMilestone
+
+CanonicalSkill ──< CareerRoleSkill >── CareerRole
+```
+
+### Key Models at a Glance
+
+| Model | Purpose |
+|---|---|
+| `User` | Core identity, linked 1:1 to Supabase Auth via `supabaseAuthId` |
+| `StudentProfile` | Extended student data (CGPA, branch, degree, portfolio slug) |
+| `CanonicalSkill` | Platform's master skill taxonomy (24 skills, categorised) |
+| `StudentSkill` | Junction: student × canonical skill with proficiency 0–100 and verification status |
+| `Opportunity` | Job/internship/project posting with eligibility constraints |
+| `Application` | Student × opportunity link with status and match score |
+| `ApplicationEvent` | Full audit trail of every status change |
+| `Assessment` | Timed skill test with pass/fail threshold |
+| `AssessmentAttempt` | Student's attempt record with per-skill score breakdown |
+| `AuditLog` | Immutable log of all sensitive platform actions |
+| `ConsentSettings` | GDPR-style privacy toggles per student |
+| `CollaborationProject` | Industry-academia joint ventures with milestone tracking |
 
 ---
 
-## 🤖 Generative AI Capabilities & Endpoints
+## 8. API Reference
 
-SkillBridge integrates with **Gemini 3.8 Flash** via the official Google Gen AI SDK (`@google/genai`):
+All endpoints are prefixed with `/api/v1`. Authentication uses `Authorization: Bearer <supabase_jwt>`.
 
-| Endpoint | Method | Purpose | Input Payload | Output Format |
+### Auth (`/api/v1/auth`)
+| Method | Endpoint | Auth | Role | Description |
 |---|---|---|---|---|
-| `/api/v1/ai/resume/parse` | `POST` | Ingests unformatted resume text and extracts structured skills, education, and projects | `{ "resumeText": string }` | Structured JSON with skills array, degrees, and project cards |
-| `/api/v1/ai/roadmap` | `POST` | Synthesizes an actionable 30/60/90-day learning journey addressing missing job requirements | `{ "currentSkills": [], "targetRole": string, "gaps": [] }` | JSON with Day 30, Day 60, Day 90 themes and milestones |
-| `/api/v1/ai/interview` | `POST` | Generates role-tailored technical interview questions with hints | `{ "roleName": string, "skills": [] }` | JSON array of questions, categories, and system hints |
-| `/api/health` | `GET` | Service health check and AI client status verification | None | `{ "status": "ok", "hasGeminiKey": boolean }` |
+| `POST` | `/sync` | Bearer JWT | Any | Creates/updates Prisma user from Supabase session |
+| `GET` | `/me` | Bearer JWT | Any | Returns authenticated user's platform identity |
 
-*Deterministic Fallback Architecture*: Every AI route features a deterministic fallback engine. If an API key is unconfigured or a network anomaly occurs, high-fidelity structured data is returned seamlessly without crashing or stalling the user interface.
+### Students (`/api/v1/students`)
+| Method | Endpoint | Auth | Role | Description |
+|---|---|---|---|---|
+| `GET` | `/portfolio/:slug` | Public | — | Fetch public student passport |
+| `GET` | `/institutions` | Public | — | List all institutions |
+| `GET` | `/me` | Required | STUDENT | Fetch my full profile |
+| `POST` | `/me` | Required | STUDENT | Create student profile (onboarding) |
+| `PUT` | `/me` | Required | STUDENT | Update student profile |
+| `POST` | `/me/skills` | Required | STUDENT | Add/update a skill |
+| `POST` | `/me/projects` | Required | STUDENT | Add a project |
+
+### Opportunities (`/api/v1/opportunities`)
+| Method | Endpoint | Auth | Role | Description |
+|---|---|---|---|---|
+| `GET` | `/` | Public | — | List published opportunities (with filters) |
+| `GET` | `/:id` | Public | — | Get single opportunity detail |
+| `POST` | `/` | Required | RECRUITER | Create new opportunity |
+| `PUT` | `/:id` | Required | RECRUITER | Update opportunity |
+
+### Applications (`/api/v1/applications`)
+| Method | Endpoint | Auth | Role | Description |
+|---|---|---|---|---|
+| `POST` | `/` | Required | STUDENT | Submit application |
+| `GET` | `/me` | Required | STUDENT | Get my applications |
+| `GET` | `/organization` | Required | RECRUITER | Get org's incoming applications |
+| `GET` | `/opportunity/:id` | Required | RECRUITER | Applications for a specific posting |
+| `PUT` | `/:id/status` | Required | RECRUITER | Advance application stage |
+
+### Institutions (`/api/v1/institutions`)
+| Method | Endpoint | Auth | Role | Description |
+|---|---|---|---|---|
+| `GET` | `/students` | Required | INSTITUTION_ADMIN / ACADEMICIAN | List all students in institution |
+| `POST` | `/verify-skill` | Required | INSTITUTION_ADMIN / ACADEMICIAN | Approve or reject a student skill |
+
+### AI (`/api/v1/ai`)
+| Method | Endpoint | Auth | Role | Description |
+|---|---|---|---|---|
+| `POST` | `/resume/parse` | Public | — | Parse raw resume text → structured skill JSON |
+| `POST` | `/roadmap` | Public | — | Generate a 30/60/90-day personalised learning roadmap |
+| `POST` | `/interview` | Public | — | Generate role-tailored technical interview questions |
+
+### Storage (`/api/v1/storage`)
+| Method | Endpoint | Auth | Role | Description |
+|---|---|---|---|---|
+| `POST` | `/upload-url` | Required | Any | Get a signed URL to upload resume to Supabase Storage |
+
+### Notifications (`/api/v1/notifications`)
+| Method | Endpoint | Auth | Role | Description |
+|---|---|---|---|---|
+| `GET` | `/` | Required | Any | Fetch user's notifications |
+| `PUT` | `/:id/read` | Required | Any | Mark notification as read |
 
 ---
 
-## 💻 Technology Stack
+## 9. AI Matching Engine
 
-- **Client Framework**: React 18 with Vite
-- **Programming Language**: TypeScript (strict type safety throughout)
-- **Styling & UI**: Tailwind CSS utility design system with refined neutral palettes
-- **Icons**: `lucide-react`
-- **Animations**: `motion` layout and micro-interactions
-- **Visualizations**: D3.js and SVG-based custom radar/bar analytics
-- **Backend Service**: Express.js with Vite development middleware integration
-- **AI Integration**: `@google/genai` TypeScript SDK (model: `gemini-3.8-flash`)
-- **Build & Bundle**: `esbuild` compiling `server.ts` into a CommonJS production bundle (`dist/server.cjs`)
+The matching engine (`src/utils/matchingEngine.ts`) runs **entirely deterministically** on the frontend — no API call required for basic scoring. Gemini is only called for the plain-English explanation.
 
----
-
-## 📦 API Reference & Data Contracts
-
-### 1. Resume Parsing Request
-```bash
-POST /api/v1/ai/resume/parse
-Content-Type: application/json
-
-{
-  "resumeText": "Arjun Sharma. B.Tech Computer Science student at Apex Institute of Technology, CGPA 8.85. Proficient in Python, Node.js, SQL, and Docker. Built a Distributed Key-Value Store with Raft consensus."
-}
+### Score Formula
+```
+Score = 0.55 × Required Skill Coverage Score
+      + 0.15 × Proficiency Fit Score
+      + 0.10 × Preferred Skill Coverage Score  
+      + 0.10 × Role Interest Alignment Score
+      + 0.05 × Work Mode / Location Score
+      + 0.05 × Profile Completeness Score
 ```
 
-### 2. Career Roadmap Request
-```bash
-POST /api/v1/ai/roadmap
-Content-Type: application/json
+### Component Definitions
+| Component | How Calculated |
+|---|---|
+| **Required Skill Coverage** | `matched_required / total_required × 100` |
+| **Proficiency Fit** | For each matched skill: `min(1, student_proficiency / required_proficiency)`, averaged |
+| **Preferred Skill Coverage** | Fuzzy string match of student skills against preferred list |
+| **Role Interest Alignment** | Student's `targetRoles` array vs. opportunity title/role slug |
+| **Work Mode Fit** | Remote=100%, Hybrid=90%, On-site=75% |
+| **Profile Completeness** | Resume link (+15), GitHub (+15), ≥2 projects (+10), ≥1 cert (+10). Base = 50 |
 
-{
-  "targetRole": "Cloud Backend Engineer",
-  "currentSkills": ["Python", "Node.js", "SQL"],
-  "gaps": ["Kubernetes", "Docker", "Redis"]
-}
+### Hard Gates (Eligibility)
+If any hard constraint fails, the raw score is **capped at 48%** and the UI shows clear diagnostic notes:
+- `Student CGPA < Minimum Required CGPA`
+- `Student Branch not in Allowed Branches`
+- `Student Graduation Year not in Eligible Batches`
+
+Final score is bounded to `[15, 99]`.
+
+---
+
+## 10. Frontend Components
+
+| Component | File | Purpose |
+|---|---|---|
+| `LandingPage` | `LandingPage.tsx` | Hero section, feature grid, CTA buttons triggering AuthModal |
+| `AuthModal` | `AuthModal.tsx` | Login + Registration modal backed by Supabase Auth |
+| `Navbar` | `Navbar.tsx` | Top navigation with notifications, sign out, dev role switcher |
+| `StudentDashboard` | `StudentDashboard.tsx` | Full student workspace (Skills, Opportunities, Applications, Passport) |
+| `IndustryDashboard` | `IndustryDashboard.tsx` | Recruiter workspace (Pipeline, Post Jobs, Learning Programs) |
+| `FacultyDashboard` | `FacultyDashboard.tsx` | Faculty portal (Opportunities, Collaborations, Research) |
+| `InstitutionDashboard` | `InstitutionDashboard.tsx` | Admin workspace (Analytics, Skill Verification, Taxonomy) |
+| `MatchExplanationModal` | `MatchExplanationModal.tsx` | Radar chart + AI explanation of candidate-job fit |
+| `AssessmentRunnerModal` | `AssessmentRunnerModal.tsx` | Timed assessment UI with question runner and scoring |
+| `ApplyModal` | `ApplyModal.tsx` | Application form with cover note and consent |
+| `PublicPortfolioModal` | `PublicPortfolioModal.tsx` | Shareable student career passport with QR code |
+| `NotificationModal` | `NotificationModal.tsx` | Notification centre with read/unread management |
+| `StudentOnboarding` | `StudentOnboarding.tsx` | New student profile creation wizard |
+| `Toast` | `Toast.tsx` | Global toast notification system |
+| `ConfirmModal` | `ConfirmModal.tsx` | Reusable destructive action confirmation dialog |
+
+All dashboards use **TanStack React Query** for server-state management with targeted cache invalidation on mutations.
+
+---
+
+## 11. Authentication Flow
+
+```
+User visits localhost:3000
+        ↓
+LandingPage rendered (no auth required)
+        ↓
+User clicks "Get Started" / "Sign In"
+        ↓
+AuthModal opens
+        ↓
+Register:  supabase.auth.signUp({ email, password, options: { data: { role, full_name } } })
+Login:     supabase.auth.signInWithPassword({ email, password })
+        ↓
+Supabase returns JWT session
+        ↓
+Frontend calls POST /api/v1/auth/sync
+(Express verifies JWT → upserts User row in Postgres)
+        ↓
+Frontend calls GET /api/v1/auth/me
+(Returns platform identity: id, email, role, institutionId, profile)
+        ↓
+AuthContext.currentUser is set
+        ↓
+App renders role-appropriate Dashboard
+```
+
+### Token Flow on Every Request
+Every Axios request automatically injects the JWT via an interceptor:
+```typescript
+api.interceptors.request.use(async (config) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`;
+  }
+  return config;
+});
 ```
 
 ---
 
-## 🚀 Setup, Installation & Running the Platform
+## 12. Project Structure
+
+```
+SkillBridge/
+├── server.ts                   # Express entry point (Vite middleware + API routes)
+├── vite.config.ts              # Vite config (React plugin, Tailwind)
+├── vitest.config.ts            # Vitest config (node environment)
+├── prisma/
+│   ├── schema.prisma           # Full DB schema (20+ models)
+│   └── seed.ts                 # Comprehensive seed script
+├── src/
+│   ├── main.tsx                # React entry point (AuthProvider + QueryClientProvider)
+│   ├── App.tsx                 # Root app shell + routing logic + modal orchestration
+│   ├── types.ts                # Shared TypeScript interfaces
+│   ├── index.css               # Global styles + Tailwind directives
+│   ├── components/
+│   │   ├── LandingPage.tsx
+│   │   ├── AuthModal.tsx
+│   │   ├── Navbar.tsx
+│   │   ├── StudentDashboard.tsx
+│   │   ├── IndustryDashboard.tsx
+│   │   ├── FacultyDashboard.tsx
+│   │   ├── InstitutionDashboard.tsx
+│   │   ├── MatchExplanationModal.tsx
+│   │   ├── AssessmentRunnerModal.tsx
+│   │   ├── ApplyModal.tsx
+│   │   ├── PublicPortfolioModal.tsx
+│   │   ├── NotificationModal.tsx
+│   │   ├── StudentOnboarding.tsx
+│   │   ├── Toast.tsx
+│   │   └── ConfirmModal.tsx
+│   ├── context/
+│   │   └── AuthContext.tsx     # Supabase session + /me identity provider
+│   ├── lib/
+│   │   ├── supabase.ts         # Supabase client (dual-purpose: browser + Node)
+│   │   ├── api.ts              # Axios client with JWT interceptors
+│   │   └── db.ts               # Prisma client singleton
+│   ├── middleware/
+│   │   ├── auth.ts             # requireAuth middleware (JWT verification)
+│   │   ├── rbac.ts             # requireRole + requireTenant middlewares
+│   │   └── errorHandler.ts     # Global Express error handler
+│   ├── controllers/
+│   │   ├── auth.controller.ts
+│   │   ├── student.controller.ts
+│   │   ├── opportunity.controller.ts
+│   │   ├── application.controller.ts
+│   │   ├── institution.controller.ts
+│   │   ├── ai.controller.ts
+│   │   ├── storage.controller.ts
+│   │   └── notification.controller.ts
+│   ├── routes/
+│   │   ├── auth.routes.ts
+│   │   ├── student.routes.ts
+│   │   ├── opportunity.routes.ts
+│   │   ├── application.routes.ts
+│   │   ├── institution.routes.ts
+│   │   ├── ai.routes.ts
+│   │   ├── storage.routes.ts
+│   │   └── notification.routes.ts
+│   ├── utils/
+│   │   ├── matchingEngine.ts   # Deterministic AI match scoring formula
+│   │   └── aiAPI.ts            # Gemini API wrapper with fallback
+│   ├── hooks/
+│   │   ├── usePersistentState.ts
+│   │   └── useEscapeKey.ts
+│   └── data/
+│       └── seedData.ts         # Frontend demo data constants
+└── tests/
+    ├── server.test.ts          # Backend integration tests (supertest)
+    └── frontend.test.tsx       # Frontend unit tests (React Testing Library)
+```
+
+---
+
+## 13. Setup & Running Locally
 
 ### Prerequisites
-- Node.js 18+ or 20+
-- npm 9+ or Bun
+- Node.js v18+
+- A Supabase Cloud project (free tier at [supabase.com](https://supabase.com))
 
-### 1. Clone & Install Dependencies
+### Step 1: Install dependencies
 ```bash
-git clone <repository-url>
-cd skillbridge
 npm install
 ```
 
-### 2. Configure Environment Variables
-Create a `.env` file in the root directory:
+### Step 2: Configure environment
+Copy the template and fill in your values:
+```bash
+cp .env.example .env
+```
+
+Open `.env` and set:
 ```env
-# Optional: Provide your Google Gemini API Key for dynamic AI responses
-GEMINI_API_KEY=your_gemini_api_key_here
-```
-*(Note: If omitted, the built-in deterministic fallback engine ensures 100% functionality).*
+# Supabase — from Settings > Database
+DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-...pooler.supabase.com:6543/postgres
+DIRECT_URL=postgresql://postgres.[ref]:[password]@aws-0-...pooler.supabase.com:5432/postgres
 
-### 3. Development Mode
-```bash
-npm run dev
-```
-The application boots on `http://localhost:3000` with hot-reloading and integrated Vite middleware.
+# Supabase — from Settings > API
+VITE_SUPABASE_URL=https://[ref].supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
-### 4. Production Build
-```bash
-npm run build
-npm start
+# Google AI (optional — fallback data used if missing)
+GEMINI_API_KEY=AIza...
+
+# Email (optional)
+RESEND_API_KEY=re_...
+
+# App
+NODE_ENV=development
+PORT=3000
 ```
-This builds static assets to `dist/` and bundles `server.ts` into `dist/server.cjs` via `esbuild`.
+
+### Step 3: Push schema and seed data
+```bash
+npm run db:push       # Pushes Prisma schema to Supabase PostgreSQL
+npm run db:seed       # Seeds canonical skills, organizations, opportunities
+```
+
+### Step 4: Create test users in Supabase Auth
+In your Supabase dashboard → Authentication → Add users:
+| Email | Password | Role |
+|---|---|---|
+| `arjun.sharma@apex.edu.in` | `password123` | Student |
+| `priya.patel@novatech.com` | `password123` | Recruiter |
+| `admin@apex.edu.in` | `password123` | Institution Admin |
+
+> **Tip:** Disable "Confirm email" in Auth → Providers → Email to skip email verification during development.
+
+### Step 5: Run
+```bash
+npm run dev           # Starts Express + Vite on http://localhost:3000
+```
+
+### Other Commands
+```bash
+npm run build         # Production build (Vite + esbuild)
+npm start             # Run production build
+npm run db:studio     # Open Prisma Studio (DB GUI)
+npm run db:reset      # Reset DB to clean state
+npx vitest run        # Run all tests
+```
 
 ---
 
-## 🎬 Demo Scenarios & Walkthrough
+## 14. Seed Data
 
-1. **Explore as Student**:
-   - Inspect Arjun's living profile and skill scores.
-   - Click **"Living Career Passport"** to view verifiable credentials and the shareable QR code.
-   - Navigate to the **"Capability Assessments"** tab and click **"Start Assessment"** on *Backend Engineering & API Design*. Complete the 5 questions, score $\ge 70\%$, and notice the new verified badge and certificate.
-   - Click on any job card's **"Why this match?"** button to view the radar breakdown and skill gap diagnostics.
-   - Click **"Apply"** on *Cloud Backend Engineer Intern* and track it in the **"My Applications"** pipeline.
+Running `npm run db:seed` populates the database with:
 
-2. **Switch to Recruiter**:
-   - In the top navigation bar, change the persona to **Recruiter (Sarah Jenkins)**.
-   - Access the **"Applicant Review Pipeline"** to see Arjun's application. Advance his status from `Applied` to `Shortlisted`.
-   - Post a new campus opening via **"Post Campus Opportunity"** and specify required proficiencies.
+### Canonical Skills Taxonomy (24 skills)
+| Category | Skills |
+|---|---|
+| Languages | Python, TypeScript, JavaScript, Java, Go |
+| Backend | SQL & Relational DBs, Node.js & Express, FastAPI, RESTful API Architecture, Redis & Caching |
+| Cloud & DevOps | Docker & Containers, Kubernetes, AWS Cloud Services, CI/CD Pipelines |
+| Frontend | React.js, Next.js, Tailwind CSS |
+| Core CS | System Design, Data Structures & Algorithms, Git & Version Control, Technical Communication |
+| Data & AI | Machine Learning, Generative AI & LLMs |
+| Security | App Security & OAuth 2.0 |
 
-3. **Switch to Institution Admin**:
-   - Switch persona to **Institution Admin (Dr. Meenakshi Sundaram)**.
-   - Inspect the **Curriculum Gap Analysis** showing industry demand vs student supply.
-   - Review pending student credentials at the **Verification Audit Desk** and approve credentials with verifiable timestamps.
-   - Click **"Export Placement Report"** to download the CSV report.
+### Career Roles (4 roles)
+- Backend Engineer, Frontend Engineer, Full-Stack Engineer, DevOps & Cloud Engineer
 
-4. **Switch to Faculty**:
-   - Switch persona to **Faculty (Dr. Ramesh Kumar)**.
-   - Review corporate research fellowships, submit an industrial consulting proposal, and supervise student capstone deliverables.
+### Demo Data
+- 1 Institution: **Apex Institute of Technology** (with CSE Department)
+- 3 Organizations: Novatech Systems, CloudScale Inc., DataFirst Analytics
+- 4 Opportunities: Full-stack internship, DevOps role, Cloud backend intern, AI product intern
+- 2 Collaboration Projects: AI-Driven Smart Campus, Cloud Infrastructure Research
+- 3 Learning Programs: Backend bootcamp, Cloud fundamentals, Frontend capstone
 
 ---
 
-## 📄 License
-SkillBridge is licensed under the MIT License. Built for academic excellence, recruiter transparency, and student empowerment.
+## 15. Testing
+
+```bash
+npx vitest run
+```
+
+| Test File | Coverage |
+|---|---|
+| `tests/server.test.ts` | Express server startup, custom error handler |
+| `tests/frontend.test.tsx` | AuthContext bootstrap (no session), AuthContext with session → `/me` call |
+
+All tests use mocked Supabase and Axios clients to isolate unit logic cleanly.
+
+---
+
+## License
+
+MIT License — Built for Smart India Hackathon 2025.
+
+---
+
+*SkillBridge AI — Bridging the gap between academia and industry through AI-powered skill intelligence.*

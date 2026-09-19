@@ -43,6 +43,8 @@ import { PublicPortfolioModal } from './components/PublicPortfolioModal';
 import { NotificationModal } from './components/NotificationModal';
 import { ApplyModal } from './components/ApplyModal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { LandingPage } from './components/LandingPage';
+import { AuthModal } from './components/AuthModal';
 
 import { useAuth } from './context/AuthContext';
 import { usePersistentState } from './hooks/usePersistentState';
@@ -78,6 +80,8 @@ export default function App() {
   const [oppToApply, setOppToApply] = useState<Opportunity | null>(null);
   const [isPassportOpen, setIsPassportOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   // Student Profile updates
   const handleUpdateStudentProfile = (updated: Partial<StudentProfile>) => {
@@ -139,7 +143,7 @@ export default function App() {
     // 3. Add notification
     const newNotif: NotificationItem = {
       id: `notif-${Date.now()}`,
-      userId: currentUser.id,
+      userId: currentUser?.id ?? studentProfile.userId,
       title: passed ? `Assessment Passed: ${asmt.capability}` : `Assessment Completed`,
       message: passed
         ? `Congratulations! You scored ${score}% and verified your competencies in ${asmt.skillsCovered.join(', ')}.`
@@ -248,30 +252,24 @@ export default function App() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-500">Loading SkillBridge...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white"><div className="glass-panel rounded-3xl px-7 py-6 text-center"><div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-indigo-200 border-t-cyan-300" /><p className="text-sm font-semibold text-slate-200">Preparing your workspace…</p></div></div>;
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="app-shell min-h-screen text-slate-800 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       <ToastProvider />
       
       {/* Platform Navigation Bar with multi-role switcher */}
       <Navbar
-        notifications={notifications}
-        onOpenNotifications={() => setIsNotificationsOpen(true)}
-        onResetData={() => setIsResetModalOpen(true)}
         activeTab={studentSubTab}
         setActiveTab={setStudentSubTab}
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-7 lg:py-10">
         
         {!currentUser ? (
-          <div className="flex flex-col items-center justify-center h-96 text-center">
-            <h2 className="text-2xl font-bold text-slate-800">Welcome to SkillBridge</h2>
-            <p className="text-slate-500 mt-2 max-w-md">Please use the "Role Mode" switcher in the top navigation bar to select a persona and log in to explore the platform.</p>
-          </div>
+          <LandingPage onOpenAuth={(mode) => { setAuthMode(mode); setIsAuthOpen(true); }} />
         ) : (
           <>
             {currentUser.role === 'STUDENT' && (
@@ -289,7 +287,7 @@ export default function App() {
               />
             )}
 
-            {currentUser.role === 'INDUSTRY' && (
+            {currentUser.role === 'RECRUITER' && (
               <IndustryDashboard
                 currentUser={currentUser as any}
                 learningPrograms={learningPrograms}
@@ -306,7 +304,7 @@ export default function App() {
               />
             )}
 
-            {currentUser.role === 'ADMIN' && (
+            {(currentUser.role === 'INSTITUTION_ADMIN' || currentUser.role === 'SUPER_ADMIN') && (
               <InstitutionDashboard
                 analytics={institutionAnalytics}
                 canonicalSkills={canonicalSkills}
@@ -319,10 +317,10 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200/80 bg-white py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+      <footer className="mt-auto border-t border-white/10 bg-slate-950/35 py-6 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-300">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800 font-display">SkillBridge AI</span>
+            <span className="font-bold text-white font-display">SkillBridge AI</span>
             <span>• Career Intelligence & Academia–Industry Collaboration Platform</span>
           </div>
           <div className="flex items-center gap-4 text-slate-400">
@@ -399,6 +397,13 @@ export default function App() {
           }}
         />
       )}
+
+      {/* MODAL: Auth Modal */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        defaultTab={authMode}
+      />
 
     </div>
   );
